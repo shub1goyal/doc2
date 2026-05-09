@@ -1037,6 +1037,11 @@ async function uploadFileToGemini(file) {
             }
         };
 
+        // No timeout – allow large files to upload as long as needed
+        xhr.timeout = 0;
+
+        xhr.ontimeout = () => reject(new Error("Upload timed out"));
+
         xhr.onload = async () => {
             if (xhr.status >= 200 && xhr.status < 300) {
                 try {

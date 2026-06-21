@@ -183,7 +183,7 @@ You will now act as a strict **Data Availability Auditor**. Your sole purpose is
         *   **Action: DELETE IT.**
 
     *   **FILTER C: Is this about an Out-of-Scope Topic?**
-        *   If the sentence refers to the absence of social or governance data (e.g., "no data breaches," "no forced recalls"), it is outside the scope of our task.
+        *   If the sentence refers to the absence of social or governance data (e.g., "no data breaches," "no forced recalls," "parental leave," "LTIFR," "fatalities," "political donations") or general financial/auditor metrics (e.g., "borrowings," "surplus/deficit," "sell currency," "inter-corporate deposits," "statutory dues"), it is outside the scope of our task.
         *   **Action: DELETE IT.**
 
 **Step 3: Produce Final Output**
@@ -201,7 +201,7 @@ Before providing your final output, you must perform this internal QC check on y
 *   **Column Identification Check:** Have I correctly mapped the `Time Period Covered` to the right data column, even if the label is different?
 *   **Granular Breakdown Check:** If a primary metric was missing but its components were present, have I correctly reported the primary as "Not Found" and created new rows for the components?
 *   **Transcription Error Check:** Are all numbers transcribed exactly?
-*   **Strict Financial Scope Check:** Is only revenue data extracted?
+*   **Strict Financial Scope Check:** Is only revenue data extracted? Have I strictly adhered to the QC Scope Restriction and avoided checking, flagging, or auditing out-of-scope items like parental leave, LTIFR, fatalities, board composition, data breaches, political donations, borrowings, surplus/deficit, sell currency, inter-corporate deposits, or statutory dues?
 *   **Data Prioritization Check:** Have I correctly used normalized values as a fallback?
 *   **Task 4 Filtering Process Check:** Have I strictly followed the three-step filtering process for Task 4?
 *   **Water Stress Segregation Check:** Is water stress data correctly isolated and only totals are captured?

@@ -282,7 +282,11 @@ Additional required row if available:
 
 **Task 4: Handle Missing Information (Auditor Mode)**
 
-Identify valid reasons for missing data, assurance discrepancies, or zero-value disclosures. Focus ONLY on statements related to the environmental, energy, water, and waste KPIs covered in Tasks 1 and 2. Do NOT extract any findings, notes, or limitations from the financial auditor's report (such as subsidiary audit coverage, accounting standards, deferred tax assets, goodwill, cash flows, profits, or financial audit opinions). Do not include unrelated corporate disclosures (e.g., dividend policies, secretarial audits, share dematerialization, or governance board updates).
+Identify valid reasons for missing data, assurance discrepancies, or zero-value disclosures. Focus ONLY on statements related to the environmental, energy, water, and waste KPIs covered in Tasks 1 and 2.
+
+CRITICAL SCOPE RESTRICTION: Do NOT audit, extract, or flag any missing, unavailable, or zero-value social/governance metrics (e.g., parental leave, LTIFR, fatalities, board diversity, data breaches, political donations, job creation, training) or general financial/auditor metrics (e.g., borrowings, profits, PAT, assets, liabilities, inter-corporate deposits, statutory dues, surplus/deficit, sell currency, or financial auditor disclaimers). Any such out-of-scope flags are strictly forbidden and constitute a critical validation failure.
+
+Do NOT extract any findings, notes, or limitations from the financial auditor's report (such as subsidiary audit coverage, accounting standards, deferred tax assets, goodwill, cash flows, profits, or financial audit opinions). Do not include unrelated corporate disclosures (e.g., dividend policies, secretarial audits, share dematerialization, or governance board updates).
 
 Guidelines for extraction:
 1. **Assurance Statements:** Include important disclosures ONLY from the third-party ESG/sustainability/BRSR Assurance/Verification Statement regarding environmental/GHG data limits or boundaries.
@@ -304,4 +308,5 @@ Guidelines for extraction:
 *   Table Format Check: Correct section-wise column order followed and no truly empty cells?
 *   KPI Coverage Check: All requested KPIs were reviewed even if only available data was output?
 *   Missing KPI Output Check: Missing KPIs were omitted from final tables rather than shown as "Not Found"?
-*   QC Scope Restriction: Focus ONLY on the environmental and revenue KPIs of Tasks 1, 2, and 3. Do NOT audit or flag any out-of-scope metrics (such as borrowings, investments, assets, liabilities, profits/PAT, social/governance metrics, or audit disclaimers from the financial auditor's report) as missing or corrections.
+*   QC Scope Restriction: Focus ONLY on the environmental and revenue KPIs of Tasks 1, 2, and 3. Do NOT audit or flag any out-of-scope metrics (such as borrowings, investments, assets, liabilities, profits/PAT, social/governance metrics like diversity, training, safety/LTIFR, or audit disclaimers from the financial auditor's report) as missing or corrections. Specifically, do NOT check, flag, or audit out-of-scope items like parental leave, LTIFR, fatalities, board composition, data breaches, political donations, surplus/deficit, sell currency, inter-corporate deposits, or statutory dues.
+

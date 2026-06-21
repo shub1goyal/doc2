@@ -1094,6 +1094,10 @@ async function handleSendMessage(event) {
         return;
     }
 
+    let isRunningPresetAsChat = false;
+    let presetChatPrompt = '';
+    let presetDisplayName = '';
+
     if (isSequentialMode && !userMessage) {
         if (uploadedFiles.length === 0) {
             showToast("Please upload at least one document first.", "error");
@@ -1108,54 +1112,50 @@ async function handleSendMessage(event) {
         // Parse tasks
         const { globalContext, tasks } = parseTasksFromPrompt(prefixContent);
         if (tasks.length === 0) {
-            showToast("Selected preset does not contain structured tasks. Run in Chat Mode instead.", "error");
+            // Run as a normal conversation chat task using the prefix content
+            isRunningPresetAsChat = true;
+            presetChatPrompt = prefixContent;
+            const activePreset = promptPrefixes.find(p => p.id === activePrefix);
+            presetDisplayName = activePreset ? `Run Preset: ${activePreset.name}` : `Run Prefix`;
+        } else {
+            seqGlobalContext = globalContext;
+            seqTasks = tasks.map(t => ({
+                id: 'task-' + (++seqTaskIdCounter),
+                name: t.name,
+                prompt: t.prompt
+            }));
+
+            runAllSequentialTasks();
             return;
         }
-        
-        seqGlobalContext = globalContext;
-        seqTasks = tasks.map(t => ({
-            id: 'task-' + (++seqTaskIdCounter),
-            name: t.name,
-            prompt: t.prompt
-        }));
-
-        runAllSequentialTasks();
-        return;
     }
 
-    // Don't send if there's no message and no files
-    if (!userMessage && uploadedFiles.length === 0) return;
-
-    // In Sequential mode, normal form submission performs a standard chat message
-    // allowing the user to chat naturally with the AI before/after the sequential run.
+    // Don't send if there's no message, no files, and not running a preset
+    if (!userMessage && uploadedFiles.length === 0 && !isRunningPresetAsChat) return;
 
     try {
         // Set loading state
         isLoading = true;
 
-        // Get active prefix content
-        const prefixContent = getActivePrefixContent();
+        // Prepare the final message
+        let finalMessage = isRunningPresetAsChat ? presetChatPrompt : userMessage;
 
-        // Prepare the final message with prefix if active and not in sequential mode
-        let finalMessage = userMessage;
-        if (!isSequentialMode && prefixContent && userMessage) {
-            finalMessage = `${prefixContent}\n\n${userMessage}`;
-        } else if (!isSequentialMode && prefixContent && uploadedFiles.length > 0) {
-            finalMessage = `${prefixContent}\n\nPlease analyze these ${uploadedFiles.length} files: ${uploadedFiles.map(f => f.name).join(', ')}.`;
+        // Prepare the user message to display in the UI
+        let userDisplayMessageText = '';
+        if (isRunningPresetAsChat) {
+            userDisplayMessageText = presetDisplayName;
+        } else if (userMessage) {
+            userDisplayMessageText = userMessage;
+        } else if (uploadedFiles.length > 0) {
+            userDisplayMessageText = `Please analyze these ${uploadedFiles.length} files: ${uploadedFiles.map(f => f.name).join(', ')}.`;
         }
 
-        // Add user message to chat (display original message without prefix)
-        if (userMessage) {
+        // Add user message to chat UI
+        if (userDisplayMessageText) {
             messages.push({
                 id: Date.now(),
                 role: 'user',
-                text: userMessage
-            });
-        } else if (uploadedFiles.length > 0) {
-            messages.push({
-                id: Date.now(),
-                role: 'user',
-                text: `Please analyze these ${uploadedFiles.length} files: ${uploadedFiles.map(f => f.name).join(', ')}.`
+                text: userDisplayMessageText
             });
         }
 

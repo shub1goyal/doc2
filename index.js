@@ -2201,11 +2201,44 @@ async function runAllSequentialTasks() {
                             hideProgressBar();
                         }
 
+                        // Build contents array including prior chat history (before the current sequential run)
+                        const contents = [];
+                        let lastAddedRole = null;
+                        
+                        if (messages.length > 2) {
+                            for (let idx = 0; idx < messages.length - 2; idx++) {
+                                const msg = messages[idx];
+                                if (msg.text && (msg.role === 'user' || msg.role === 'model')) {
+                                    const role = msg.role === 'model' ? 'model' : 'user';
+                                    
+                                    if (role === lastAddedRole) {
+                                        contents[contents.length - 1].parts[0].text += `\n\n${msg.text}`;
+                                    } else {
+                                        contents.push({
+                                            role: role,
+                                            parts: [{ text: msg.text }]
+                                        });
+                                        lastAddedRole = role;
+                                    }
+                                }
+                            }
+                        }
+                        
+                        // Add the current task prompt + files as the active user turn
+                        if (lastAddedRole === 'user') {
+                            contents[contents.length - 1].parts.push(...parts);
+                        } else {
+                            contents.push({
+                                role: 'user',
+                                parts: parts
+                            });
+                        }
+
                         // Count input tokens and add to consolidated count
                         let taskInputTokens = 0;
                         try {
                             const countResult = await activeModel.countTokens({
-                                contents: [{ role: 'user', parts: parts }],
+                                contents: contents,
                                 systemInstruction: SYSTEM_INSTRUCTION
                             });
                             taskInputTokens = countResult.totalTokens;
@@ -2218,7 +2251,7 @@ async function runAllSequentialTasks() {
                         }
 
                         result = await activeModel.generateContentStream({
-                            contents: [{ role: 'user', parts: parts }],
+                            contents: contents,
                             systemInstruction: SYSTEM_INSTRUCTION,
                             generationConfig: genConfig
                         });

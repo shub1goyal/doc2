@@ -1499,9 +1499,7 @@ function render() {
 
             tableCopyButton.addEventListener('click', function (e) {
                 e.stopPropagation();
-                // Convert table to markdown format for copying
-                const tableMarkdown = convertTableToMarkdown(table);
-                copyToClipboard(tableMarkdown);
+                copyTableToClipboard(table);
             });
 
             tableButtonContainer.appendChild(tableCopyButton);
@@ -1583,6 +1581,46 @@ function copyToClipboard(text) {
     } else {
         // Fallback for older browsers
         fallbackCopyTextToClipboard(text);
+    }
+}
+
+function copyTableToClipboard(tableElement) {
+    // 1. Generate TSV (Tab Separated Values)
+    let tsv = '';
+    const rows = tableElement.querySelectorAll('tr');
+    for (let i = 0; i < rows.length; i++) {
+        const cells = rows[i].querySelectorAll('th, td');
+        const cellData = Array.from(cells).map(cell => cell.textContent.trim());
+        tsv += cellData.join('\t') + '\n';
+    }
+
+    // 2. Generate HTML Table representation (removing interactive elements/styles)
+    const cleanTable = tableElement.cloneNode(true);
+    cleanTable.querySelectorAll('button, .absolute').forEach(el => el.remove());
+    cleanTable.removeAttribute('class');
+    cleanTable.removeAttribute('style');
+    cleanTable.querySelectorAll('*').forEach(el => {
+        el.removeAttribute('class');
+        el.removeAttribute('style');
+    });
+    const html = cleanTable.outerHTML;
+
+    // 3. Write to clipboard
+    if (navigator.clipboard && window.ClipboardItem) {
+        const tsvBlob = new Blob([tsv], { type: 'text/plain' });
+        const htmlBlob = new Blob([html], { type: 'text/html' });
+        const item = new ClipboardItem({
+            'text/plain': tsvBlob,
+            'text/html': htmlBlob
+        });
+        navigator.clipboard.write([item]).then(() => {
+            showToast('Table copied! Ready for Excel.');
+        }).catch(err => {
+            console.error('Clipboard API failed, falling back to plain TSV text:', err);
+            copyToClipboard(tsv);
+        });
+    } else {
+        copyToClipboard(tsv);
     }
 }
 
@@ -1678,6 +1716,7 @@ function convertTableToMarkdown(tableElement) {
 window.copyToClipboard = copyToClipboard;
 window.showToast = showToast;
 window.convertTableToMarkdown = convertTableToMarkdown;
+window.copyTableToClipboard = copyTableToClipboard;
 
 /* ================================================================
    INTEGRATED SEQUENTIAL MODE

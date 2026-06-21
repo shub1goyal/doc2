@@ -2138,8 +2138,15 @@ async function runAllSequentialTasks() {
                     taskPrompt += `**GLOBAL CONTEXT & RULES (apply to all tasks):**\n${globalCtx}\n\n---\n\n`;
                 }
                 taskPrompt += task.prompt;
-                if (passPrev && prevOutput && i > 0) {
-                    taskPrompt += `\n\n---\n**OUTPUT FROM PREVIOUS TASK (for reference only):**\n${prevOutput}`;
+                if (passPrev && i > 0) {
+                    taskPrompt += `\n\n---\n**OUTPUTS FROM PREVIOUS TASKS (for reference only):**\n`;
+                    for (let prevIdx = 0; prevIdx < i; prevIdx++) {
+                        const prevTask = seqTasks[prevIdx];
+                        const prevOutputVal = seqTaskOutputs[prevTask.id] || '';
+                        if (prevOutputVal) {
+                            taskPrompt += `\n### ${prevTask.name}\n${prevOutputVal}\n`;
+                        }
+                    }
                 }
 
                 if (schema) {

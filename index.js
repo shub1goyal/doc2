@@ -1730,6 +1730,18 @@ const Task1Schema = {
         ghgAssuranceStandard: { 
             type: "STRING", 
             description: "Extract only the named assurance standard used for GHG (e.g. ISAE 3000, ISO 14064-3) exactly as stated (Include PDF Page # where found, e.g., 'PDF page 45'). If not available, write 'Not Found'." 
+        },
+        ghgOrganizationalApproach: {
+            type: "STRING",
+            description: "Financial Control / Equity Share / Operational Control / Other Boundary Criteria Disclosed / No Approach Disclosed (Include PDF Page # where found, e.g., 'PDF page 12'). If not applicable, write 'Not Applicable'."
+        },
+        ghgAssuranceLevel: {
+            type: "STRING",
+            description: "Limited / Reasonable / Other (Include PDF Page # where found, e.g., 'PDF page 52'). If not available, write 'Not Found'."
+        },
+        disclosureRevenueCoverage: {
+            type: "STRING",
+            description: "Value % or state 'Disclosed' / 'Calculated' / 'Not disclosed - unable to calculate' (Include PDF Page # where found, e.g., 'PDF page 12')."
         }
     },
     required: ["companyName", "documentType", "timePeriodCovered", "boundaryDescription", "boundaryCompleteness", "validationNotes"]
@@ -1932,8 +1944,11 @@ function formatTask1ToMarkdown(data) {
 *   **Boundary Completeness Classification:** ${data.boundaryCompleteness || 'N/A'}
 *   **Validation Notes:** ${data.validationNotes || 'N/A'}
 *   **Reporting Frameworks Mentioned:** ${data.reportingFrameworks || 'N/A'}
+*   **GHG Organizational Approach (if Scope 1 or 2 disclosed):** ${data.ghgOrganizationalApproach || 'N/A'}
 *   **GHG Assurance Coverage (If Available):** ${data.ghgAssuranceCoverage || 'N/A'}
-*   **GHG Assurance Standard (If Available):** ${data.ghgAssuranceStandard || 'N/A'}`;
+*   **GHG Assurance Standard (If Available):** ${data.ghgAssuranceStandard || 'N/A'}
+*   **GHG Assurance Level (If Available):** ${data.ghgAssuranceLevel || 'N/A'}
+*   **Disclosure Revenue % Coverage:** ${data.disclosureRevenueCoverage || 'N/A'}`;
 }
 
 function formatTask2ToMarkdown(data) {

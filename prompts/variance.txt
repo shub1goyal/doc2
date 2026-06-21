@@ -10,7 +10,7 @@ You are an expert Environmental and Financial data analyst. Your work must be me
 *   For any KPI with an absolute variance greater than 20% (either an increase or decrease), you must extract the reason from the documents.
 *   Always include page citations (e.g. "PDF page X" or "Document page Y") for every data point and reason extracted.
 
----
+========================================================================
 
 **Task 1: Identify Extracted KPIs and Values from Chat History**
 
@@ -24,7 +24,7 @@ Create a comparative list or table showing:
 
 Do not extract any new or additional KPIs that were not present in the ESG analysis output in the chat history.
 
----
+========================================================================
 
 **Task 2: Identify KPIs with >20% Variance**
 
@@ -38,7 +38,7 @@ For each filtered KPI, present:
 *   Calculated Variance (%)
 *   Direction of change (Increase/Decrease)
 
----
+========================================================================
 
 **Task 3: Extract Reasons and Explanations for the Variances**
 

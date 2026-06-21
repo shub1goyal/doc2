@@ -2164,7 +2164,7 @@ async function runAllSequentialTasks() {
 
                 // Stream response with retries on 429/403/permission
                 const genConfig = {
-                    temperature: 0.25,
+                    temperature: schema ? 0.25 : 0.5,
                     maxOutputTokens: 65536
                 };
 
@@ -2226,7 +2226,17 @@ async function runAllSequentialTasks() {
                         
                         // Add the current task prompt + files as the active user turn
                         if (lastAddedRole === 'user') {
-                            contents[contents.length - 1].parts.push(...parts);
+                            // Merge the text of the new taskPrompt into the last part's text if it's text
+                            const lastPart = contents[contents.length - 1].parts[0];
+                            if (lastPart && typeof lastPart.text === 'string') {
+                                lastPart.text += `\n\n${taskPrompt}`;
+                            } else {
+                                contents[contents.length - 1].parts.push({ text: taskPrompt });
+                            }
+                            // Append any files (skip the first element of parts which is the text taskPrompt)
+                            if (parts.length > 1) {
+                                contents[contents.length - 1].parts.push(...parts.slice(1));
+                            }
                         } else {
                             contents.push({
                                 role: 'user',

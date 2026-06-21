@@ -9,7 +9,13 @@ Identify and list all KPIs that show a variance of above 20% compared to the pre
 For each KPI with a variance above 20%, extract the reason/explanation for this change from the uploaded documents.
 
 **OUTPUT FORMAT:**
-Present your findings in a clear, formatted Markdown table showing:
+Present your findings in a clear, formatted Markdown table using this exact header and separator structure:
 | KPI Name | Previous Year Value | Target Year Value | Variance (%) | Direction (Increase/Decrease) | Explanation / Reason | Page Source (PDF#) |
+| :--- | :--- | :--- | :--- | :--- | :--- | :--- |
 
-Do not extract any new or additional KPIs that were not present in the ESG analysis output in the chat history. Always include page citations (e.g. "PDF page X" or "Document page Y") for every reason extracted.
+**CRITICAL TABLE RULES (MUST FOLLOW):**
+1. Each row in the Markdown table MUST start with a single pipe `|` and end with a single pipe `|` followed immediately by a single newline.
+2. Never use double pipes `||` anywhere in the table to separate rows or columns.
+3. The separator row must have exactly 7 columns matching the header: `| :--- | :--- | :--- | :--- | :--- | :--- | :--- |`
+
+Do not extract any new or additional KPIs that were not present in the ESG analysis output in the chat history. Always include page citations (e.g. "PDF page X" or "Document page Y") for every data point and reason extracted.

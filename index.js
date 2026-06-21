@@ -2014,6 +2014,15 @@ function formatTask5ToMarkdown(data) {
 
 function getTaskSchemaAndFormatter(taskName) {
     const name = taskName.toLowerCase();
+    
+    // Check if the current active prefix/preset is Variance Analysis to bypass schemas
+    if (activePrefix) {
+        const active = promptPrefixes.find(p => p.id === activePrefix);
+        if (active && active.name.toLowerCase().includes("variance")) {
+            return { schema: null, formatter: null };
+        }
+    }
+
     if (name.includes("task 1") || name.includes("document identification") || name.includes("reporting scope")) {
         return { schema: Task1Schema, formatter: formatTask1ToMarkdown };
     }

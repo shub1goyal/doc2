@@ -17,6 +17,12 @@
       "name": "ESG 2023",
       "file": "esg_2023.txt",
       "description": "Analyze all ESG metrics in documents for 2023"
+    },
+    {
+      "id": "variance-analysis",
+      "name": "Variance Analysis",
+      "file": "variance.txt",
+      "description": "Identify KPIs with >20% variance from previous year and extract reasons"
     }
   ]
 }

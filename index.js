@@ -1034,6 +1034,18 @@ async function uploadFileToGemini(file) {
     });
 }
 
+async function getOrUploadFile(file) {
+    const activeKey = API_KEYS.length > 0 ? API_KEYS[currentKeyIndex] : '';
+    if (!activeKey) throw new Error("API Key is required for file upload");
+    let meta = uploadedFileMetadata.find(m => m.name === file.name && m.apiKey === activeKey);
+    if (!meta) {
+        const fileMetadata = await uploadFileToGemini(file);
+        meta = { name: file.name, uri: fileMetadata.uri, mimeType: fileMetadata.mimeType, apiKey: activeKey };
+        uploadedFileMetadata.push(meta);
+    }
+    return meta;
+}
+
 function updateProgressBar(percent, message, isLargeFile = false) {
     if (fileProcessingProgressElement) {
         fileProcessingProgressElement.classList.remove('hidden');
@@ -1153,51 +1165,6 @@ async function handleSendMessage(event) {
         // Add placeholder for model response
         const responseId = Date.now() + 1;
 
-        // Prepare content parts for the message
-        const contentParts = [];
-
-        // Add text with instruction to identify report types
-        if (finalMessage) {
-            let enhancedMessage = finalMessage;
-            if (uploadedFiles.length > 0) {
-                enhancedMessage += "\n\nBefore analyzing the content, please identify the company name and what type of report each document is based on its content (Annual Report, Sustainability Report, or ESG Report) and mention this in your response in the format: \"[Company Name] - [Document Type]\".";
-            }
-            contentParts.push({ text: enhancedMessage });
-        }
-
-        // Add files if present
-        if (uploadedFiles.length > 0) {
-            updateProgressBar(0, "Starting file uploads...");
-            const uploadResults = [];
-
-            for (let i = 0; i < uploadedFiles.length; i++) {
-                const file = uploadedFiles[i];
-                let meta = uploadedFileMetadata.find(m => m.name === file.name);
-                if (!meta) {
-                    try {
-                        const fileMetadata = await uploadFileToGemini(file);
-                        meta = { name: file.name, uri: fileMetadata.uri, mimeType: fileMetadata.mimeType };
-                        uploadedFileMetadata.push(meta);
-                    } catch (uploadError) {
-                        console.error(`Error uploading ${file.name}:`, uploadError);
-                        throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
-                    }
-                }
-                uploadResults.push(meta);
-            }
-
-            hideProgressBar();
-
-            for (const fileMeta of uploadResults) {
-                contentParts.push({
-                    fileData: {
-                        mimeType: fileMeta.mimeType,
-                        fileUri: fileMeta.uri
-                    }
-                });
-            }
-        }
-
         messages.push({
             id: responseId,
             role: 'model',
@@ -1220,6 +1187,34 @@ async function handleSendMessage(event) {
                 const selectedModel = modelSelect ? modelSelect.value : MODEL_NAME;
                 const model = genAI.getGenerativeModel({ model: selectedModel });
                 console.log(`Using model: ${selectedModel}`);
+
+                // Prepare content parts for the message (built dynamically for the current active key)
+                const contentParts = [];
+
+                // Add text with instruction to identify report types
+                if (finalMessage) {
+                    let enhancedMessage = finalMessage;
+                    if (uploadedFiles.length > 0) {
+                        enhancedMessage += "\n\nBefore analyzing the content, please identify the company name and what type of report each document is based on its content (Annual Report, Sustainability Report, or ESG Report) and mention this in your response in the format: \"[Company Name] - [Document Type]\".";
+                    }
+                    contentParts.push({ text: enhancedMessage });
+                }
+
+                // Add files if present (resolving/uploading using the current active key)
+                if (uploadedFiles.length > 0) {
+                    updateProgressBar(0, "Preparing files...");
+                    for (let i = 0; i < uploadedFiles.length; i++) {
+                        const file = uploadedFiles[i];
+                        const meta = await getOrUploadFile(file);
+                        contentParts.push({
+                            fileData: {
+                                mimeType: meta.mimeType,
+                                fileUri: meta.uri
+                            }
+                        });
+                    }
+                    hideProgressBar();
+                }
 
                 if (!chatSession) {
                     const safetySettings = [
@@ -1292,10 +1287,10 @@ async function handleSendMessage(event) {
                 break; // Success!
             } catch (error) {
                 const errMsg = (error.message || "").toLowerCase();
-                if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key")) {
+                if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403")) {
                     if (API_KEYS.length > 1) {
                         attempt++;
-                        console.warn(`Chat failed with rate limit/quota. Rotating key and retrying immediately...`);
+                        console.warn(`Chat failed with rate limit/quota or permissions error. Rotating key and retrying immediately...`);
                         rotateAPIKey();
                         chatSession = null; // Re-create session with the new key in next iteration
                         continue;
@@ -2081,31 +2076,7 @@ async function runAllSequentialTasks() {
     chatSession = null;
 
     try {
-        // Upload any files that aren't uploaded yet
-        updateProgressBar(0, "Preparing files...");
-        const uploadResults = [];
-        for (let i = 0; i < uploadedFiles.length; i++) {
-            const file = uploadedFiles[i];
-            let meta = uploadedFileMetadata.find(m => m.name === file.name);
-            if (!meta) {
-                updateProgressBar((i / uploadedFiles.length) * 100, `Uploading ${file.name}...`);
-                try {
-                    const uploadedMeta = await uploadFileToGemini(file);
-                    meta = { name: file.name, uri: uploadedMeta.uri, mimeType: uploadedMeta.mimeType };
-                    uploadedFileMetadata.push(meta);
-                } catch (err) {
-                    console.error(`Failed to upload ${file.name}:`, err);
-                    showToast(`Upload failed: ${err.message}`, 'error');
-                    isRunningSeq = false;
-                    isLoading = false;
-                    hideProgressBar();
-                    render();
-                    return;
-                }
-            }
-            uploadResults.push(meta);
-        }
-        hideProgressBar();
+        // File uploading is now done dynamically inside each task retry loop to handle key-scoped files on rotation
 
         // Retrieve other settings
         const globalCtx = seqGlobalContext || '';
@@ -2175,33 +2146,7 @@ async function runAllSequentialTasks() {
                     taskPrompt += `\n\nCRITICAL: You MUST respond with a JSON object that strictly adheres to the requested JSON schema structure. Do not output markdown tables, HTML, or conversational text. Output ONLY the raw JSON matching the schema. All fields should be fully populated based on the uploaded documents.`;
                 }
 
-                const parts = [{ text: taskPrompt }];
-                for (const meta of uploadResults) {
-                    parts.push({
-                        fileData: {
-                            mimeType: meta.mimeType,
-                            fileUri: meta.uri
-                        }
-                    });
-                }
-
-                // Count input tokens and add to consolidated count
-                let taskInputTokens = 0;
-                try {
-                    const countResult = await model.countTokens({
-                        contents: [{ role: 'user', parts: parts }],
-                        systemInstruction: SYSTEM_INSTRUCTION
-                    });
-                    taskInputTokens = countResult.totalTokens;
-                    modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
-                    if (modelMessageIndex !== -1) {
-                        messages[modelMessageIndex].tokenCounts.input = completedTasksInputTokens + taskInputTokens;
-                    }
-                } catch (e) {
-                    console.error('Error counting input tokens for task:', e);
-                }
-
-                // Stream response with retries on 429
+                // Stream response with retries on 429/403/permission
                 const genConfig = {
                     temperature: 0.25,
                     maxOutputTokens: 65536
@@ -2214,6 +2159,7 @@ async function runAllSequentialTasks() {
 
                 let result = null;
                 let attempt = 0;
+                let attemptTaskInputTokens = 0;
                 const maxAttempts = API_KEYS.length > 1 ? API_KEYS.length : 3;
                 let waitDelay = 7000;
 
@@ -2221,18 +2167,54 @@ async function runAllSequentialTasks() {
                     try {
                         // Re-get model instance with the current active key
                         const activeModel = genAI.getGenerativeModel({ model: selectedModel });
+                        
+                        // Build parts array dynamically for the current active key
+                        const parts = [{ text: taskPrompt }];
+                        if (uploadedFiles.length > 0) {
+                            updateProgressBar(0, "Preparing files...");
+                            for (let fIdx = 0; fIdx < uploadedFiles.length; fIdx++) {
+                                const file = uploadedFiles[fIdx];
+                                const meta = await getOrUploadFile(file);
+                                parts.push({
+                                    fileData: {
+                                        mimeType: meta.mimeType,
+                                        fileUri: meta.uri
+                                    }
+                                });
+                            }
+                            hideProgressBar();
+                        }
+
+                        // Count input tokens and add to consolidated count
+                        let taskInputTokens = 0;
+                        try {
+                            const countResult = await activeModel.countTokens({
+                                contents: [{ role: 'user', parts: parts }],
+                                systemInstruction: SYSTEM_INSTRUCTION
+                            });
+                            taskInputTokens = countResult.totalTokens;
+                            let modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
+                            if (modelMessageIndex !== -1) {
+                                messages[modelMessageIndex].tokenCounts.input = completedTasksInputTokens + taskInputTokens;
+                            }
+                        } catch (e) {
+                            console.error('Error counting input tokens for task:', e);
+                        }
+
                         result = await activeModel.generateContentStream({
                             contents: [{ role: 'user', parts: parts }],
                             systemInstruction: SYSTEM_INSTRUCTION,
                             generationConfig: genConfig
                         });
+                        
+                        attemptTaskInputTokens = taskInputTokens;
                         break; // Success! Break out of the retry loop
                     } catch (streamError) {
                         const errMsg = (streamError.message || "").toLowerCase();
-                        if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key")) {
+                        if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403")) {
                             if (API_KEYS.length > 1) {
                                 attempt++;
-                                console.warn(`Task ${task.name} failed with rate limit/quota. Rotating key and retrying immediately...`);
+                                console.warn(`Task ${task.name} failed with rate limit/quota or permissions error. Rotating key and retrying immediately...`);
                                 rotateAPIKey();
                                 continue;
                             } else {
@@ -2334,7 +2316,7 @@ async function runAllSequentialTasks() {
                 seqTaskOutputs[task.id] = parsedMarkdown;
 
                 // Accumulate tokens on success
-                completedTasksInputTokens += taskInputTokens;
+                completedTasksInputTokens += attemptTaskInputTokens;
                 completedTasksOutputTokens += taskOutputTokens;
 
             } catch (taskError) {

@@ -5,14 +5,39 @@ import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/ge
 const MODEL_NAME = 'gemini-2.5-flash';
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB limit for Gemini File API
 
-// API Key Management
-let API_KEY = localStorage.getItem('gemini_api_key') || '';
+// API Key Management & Robust Rotation
+let API_KEYS = [];
+const INJECTED_KEYS_STR = '/* GEMINI_API_KEYS_INJECTED */';
+
+// Load build-injected keys first
+if (INJECTED_KEYS_STR && !INJECTED_KEYS_STR.startsWith('/*')) {
+    API_KEYS = INJECTED_KEYS_STR.split(',').map(k => k.trim()).filter(Boolean);
+}
+
+// Local storage key loading removed to prioritize build-injected environment keys
+
+let currentKeyIndex = 0;
 let genAI = null;
 
-// Initialize the Gemini API client if we have an API key
-if (API_KEY) {
-    genAI = new GoogleGenerativeAI(API_KEY);
+function initializeGenAI() {
+    if (API_KEYS.length > 0) {
+        const activeKey = API_KEYS[currentKeyIndex];
+        genAI = new GoogleGenerativeAI(activeKey);
+        console.log(`Initialized Gemini API with key index ${currentKeyIndex} (ending in ...${activeKey.slice(-4)})`);
+    } else {
+        genAI = null;
+    }
 }
+
+function rotateAPIKey() {
+    if (API_KEYS.length <= 1) return false;
+    currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
+    initializeGenAI();
+    return true;
+}
+
+// Initialize on startup
+initializeGenAI();
 
 // The system instruction needs to be in a format compatible with the Gemini API
 const SYSTEM_INSTRUCTION = {
@@ -30,6 +55,14 @@ let uploadedFiles = []; // Array to store multiple files
 let chatSession = null; // To hold the Gemini chat session
 let promptPrefixes = []; // Initialize as empty array
 let activePrefix = ''; // Removed localStorage for activePrefix
+let isUserAtBottom = true; // Auto-scroll tracking
+
+// Sequential Mode State
+let isSequentialMode = true; // Default to true since Chat mode is eliminated
+let seqTasks = [];             // [{id, name, prompt}]
+let seqGlobalContext = '';     // Shared rules prepended to each task
+let isRunningSeq = false;
+let seqTaskIdCounter = 0;
 
 // Load prompt presets from files
 async function loadPromptPresets() {
@@ -70,6 +103,9 @@ async function loadPromptPresets() {
 
         // Only use default prompts, ignore any user-created prompts from localStorage
         promptPrefixes = [...defaultPrompts];
+        if (typeof updateSeqPresetDropdown === 'function') {
+            updateSeqPresetDropdown();
+        }
 
         // We don't need to clear localStorage anymore since we're not using it for prompts
         // localStorage.removeItem('prompt_prefixes');
@@ -161,12 +197,7 @@ const fileProcessingProgressElement = safeGetElement('file-processing-progress')
 const progressBar = safeGetElement('progress-bar');
 const progressText = safeGetElement('progress-text');
 
-// API Key Modal Elements
-const apiKeyButton = safeGetElement('api-key-button');
-const apiKeyModal = safeGetElement('api-key-modal');
-const apiKeyForm = safeGetElement('api-key-form');
-const apiKeyInput = safeGetElement('api-key-input');
-const apiKeyCancelButton = safeGetElement('api-key-cancel');
+// API Key Modal Elements (removed for build-injected environment keys)
 
 // Safe event listener attachment function
 function safeAddEventListener(element, event, handler) {
@@ -239,19 +270,20 @@ document.addEventListener('click', (event) => {
     }
 });
 
-// API Key Modal Event Listeners
-safeAddEventListener(apiKeyButton, 'click', openApiKeyModal);
-safeAddEventListener(apiKeyCancelButton, 'click', closeApiKeyModal);
-safeAddEventListener(apiKeyForm, 'submit', saveApiKey);
+// API Key Modal Event Listeners (removed for build-injected environment keys)
 
 // Scroll Navigation Event Listeners
-// safeAddEventListener(scrollToTopButton, 'click', scrollToTop);
-// safeAddEventListener(scrollToBottomButton, 'click', scrollToBottom);
+function handleChatScroll() {
+    if (!chatContainer) return;
+    // If user is within 50px of the bottom, consider them at the bottom
+    const threshold = 50;
+    isUserAtBottom = (chatContainer.scrollHeight - chatContainer.scrollTop - chatContainer.clientHeight) <= threshold;
+}
 
 // Add scroll event listener to chat container for auto-scroll detection
-// if (chatContainer) {
-//     chatContainer.addEventListener('scroll', handleChatScroll);
-// }
+if (chatContainer) {
+    chatContainer.addEventListener('scroll', handleChatScroll);
+}
 
 // Initialize the chat with a welcome message
 initializeChat();
@@ -762,9 +794,9 @@ function initializeChat() {
 
 Upload documents or ask me anything!`;
 
-    // Add API key setup instructions if no API key is set
-    if (!API_KEY) {
-        welcomeMessage += '\n\n**Important Setup Required**: You need to set up your Gemini API key before using this application. Click the "Set API Key" button in the top right corner to get started.';
+    // Add warning if no build-injected keys are configured
+    if (API_KEYS.length === 0) {
+        welcomeMessage += '\n\n⚠️ **Configuration Required**: No Gemini API keys are configured. Please ensure they are injected at build time via GitHub Secrets (`GEMINI_API_KEYS`).';
     }
 
     messages = [
@@ -777,67 +809,7 @@ Upload documents or ask me anything!`;
     render();
 }
 
-/**
- * API Key Modal Functions
- */
-function openApiKeyModal() {
-    if (!apiKeyModal || !apiKeyInput) {
-        console.error('API key modal elements not found');
-        return;
-    }
-
-    // Pre-fill with existing API key if available
-    if (API_KEY) {
-        apiKeyInput.value = API_KEY;
-    }
-    apiKeyModal.classList.remove('hidden');
-}
-
-function closeApiKeyModal() {
-    if (!apiKeyModal) {
-        console.error('API key modal element not found');
-        return;
-    }
-    apiKeyModal.classList.add('hidden');
-}
-
-function saveApiKey(event) {
-    event.preventDefault();
-
-    if (!apiKeyInput) {
-        console.error('API key input element not found');
-        return;
-    }
-
-    const newApiKey = apiKeyInput.value.trim();
-
-    if (!newApiKey) {
-        alert('Please enter a valid API key');
-        return;
-    }
-
-    // Save to localStorage (keeping this as requested)
-    localStorage.setItem('gemini_api_key', newApiKey);
-    API_KEY = newApiKey;
-
-    // Initialize the Gemini API client with the new key
-    genAI = new GoogleGenerativeAI(API_KEY);
-
-    // Reset chat session to use the new API key
-    chatSession = null;
-
-    // Close the modal
-    closeApiKeyModal();
-
-    // Add a confirmation message
-    messages.push({
-        id: Date.now(),
-        role: 'model',
-        text: 'API key has been updated successfully! You can now use the chat.'
-    });
-
-    render();
-}
+// API Key Modal Functions removed (replaced by environment key injection)
 
 /**
  * Reset Session Function
@@ -909,7 +881,7 @@ function processFileUpload(file) {
 
     if (validTypes.includes(fileExtension.toLowerCase())) {
         // Check if file already exists
-        const existingFileIndex = uploadedFiles.findIndex(f => f.name === file.name && f.size === f.size);
+        const existingFileIndex = uploadedFiles.findIndex(f => f.name === file.name && f.size === file.size);
         if (existingFileIndex === -1) {
             uploadedFiles.push(file);
         }
@@ -993,7 +965,8 @@ function renderFileList() {
  * Upload a file to Gemini using the official File API (Resumable Upload)
  */
 async function uploadFileToGemini(file) {
-    if (!API_KEY) throw new Error("API Key is required for file upload");
+    const activeKey = API_KEYS.length > 0 ? API_KEYS[currentKeyIndex] : '';
+    if (!activeKey) throw new Error("API Key is required for file upload");
 
     const fileSize = file.size;
     const mimeType = file.type || 'application/octet-stream';
@@ -1002,7 +975,7 @@ async function uploadFileToGemini(file) {
     console.log(`Starting upload for ${displayName} (${fileSize} bytes)`);
 
     // Step 1: Initialize Resumable Upload Session
-    const initResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${API_KEY}`, {
+    const initResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${activeKey}`, {
         method: 'POST',
         headers: {
             'X-Goog-Upload-Protocol': 'resumable',
@@ -1103,14 +1076,46 @@ async function handleSendMessage(event) {
 
     const userMessage = messageInput.value.trim();
 
+    // Check if API key is set
+    if (API_KEYS.length === 0) {
+        showToast("No Gemini API keys configured. Please inject keys via environment/build.", "error");
+        return;
+    }
+
+    if (isSequentialMode && !userMessage) {
+        if (uploadedFiles.length === 0) {
+            showToast("Please upload at least one document first.", "error");
+            return;
+        }
+        const prefixContent = getActivePrefixContent();
+        if (!prefixContent) {
+            showToast("Please select an ESG Preset or Prompt Prefix first.", "error");
+            return;
+        }
+        
+        // Parse tasks
+        const { globalContext, tasks } = parseTasksFromPrompt(prefixContent);
+        if (tasks.length === 0) {
+            showToast("Selected preset does not contain structured tasks. Run in Chat Mode instead.", "error");
+            return;
+        }
+        
+        seqGlobalContext = globalContext;
+        seqTasks = tasks.map(t => ({
+            id: 'task-' + (++seqTaskIdCounter),
+            name: t.name,
+            prompt: t.prompt
+        }));
+
+        runAllSequentialTasks();
+        return;
+    }
+
     // Don't send if there's no message and no files
     if (!userMessage && uploadedFiles.length === 0) return;
 
-    // Check if API key is set
-    if (!API_KEY) {
-        openApiKeyModal();
-        return;
-    }
+    // In Sequential mode, normal form submission performs a standard chat message
+    // allowing the user to chat naturally with the AI before/after the sequential run.
 
     try {
         // Set loading state
@@ -1119,11 +1124,11 @@ async function handleSendMessage(event) {
         // Get active prefix content
         const prefixContent = getActivePrefixContent();
 
-        // Prepare the final message with prefix if active
+        // Prepare the final message with prefix if active and not in sequential mode
         let finalMessage = userMessage;
-        if (prefixContent && userMessage) {
+        if (!isSequentialMode && prefixContent && userMessage) {
             finalMessage = `${prefixContent}\n\n${userMessage}`;
-        } else if (prefixContent && uploadedFiles.length > 0) {
+        } else if (!isSequentialMode && prefixContent && uploadedFiles.length > 0) {
             finalMessage = `${prefixContent}\n\nPlease analyze these ${uploadedFiles.length} files: ${uploadedFiles.map(f => f.name).join(', ')}.`;
         }
 
@@ -1145,54 +1150,8 @@ async function handleSendMessage(event) {
         // Clear input
         messageInput.value = '';
 
-        // Render to show user message
-        render();
-
-        // Initialize chat session if it doesn't exist
-        // Define model in a broader scope to be accessible
-        const selectedModel = modelSelect ? modelSelect.value : MODEL_NAME;
-        const model = genAI.getGenerativeModel({ model: selectedModel });
-        console.log(`Using model: ${selectedModel}`);
-
-        if (!chatSession) {
-            const safetySettings = [
-                {
-                    category: HarmCategory.HARM_CATEGORY_HARASSMENT,
-                    threshold: HarmBlockThreshold.BLOCK_NONE
-                },
-                {
-                    category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
-                    threshold: HarmBlockThreshold.BLOCK_NONE
-                },
-                {
-                    category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
-                    threshold: HarmBlockThreshold.BLOCK_NONE
-                },
-                {
-                    category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
-                    threshold: HarmBlockThreshold.BLOCK_NONE
-                }
-            ];
-
-            chatSession = model.startChat({
-                history: [],
-                safetySettings,
-                generationConfig: {
-                    temperature: 0.4,
-                    maxOutputTokens: 64000 // Increase limit to prevent truncation
-                },
-                systemInstruction: SYSTEM_INSTRUCTION
-            });
-        }
-
         // Add placeholder for model response
         const responseId = Date.now() + 1;
-        messages.push({
-            id: responseId,
-            role: 'model',
-            text: '',
-            tokenCounts: { input: 0, output: 0 } // Initialize token counts
-        });
 
         // Prepare content parts for the message
         const contentParts = [];
@@ -1213,13 +1172,18 @@ async function handleSendMessage(event) {
 
             for (let i = 0; i < uploadedFiles.length; i++) {
                 const file = uploadedFiles[i];
-                try {
-                    const fileMetadata = await uploadFileToGemini(file);
-                    uploadResults.push(fileMetadata);
-                } catch (uploadError) {
-                    console.error(`Error uploading ${file.name}:`, uploadError);
-                    throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+                let meta = uploadedFileMetadata.find(m => m.name === file.name);
+                if (!meta) {
+                    try {
+                        const fileMetadata = await uploadFileToGemini(file);
+                        meta = { name: file.name, uri: fileMetadata.uri, mimeType: fileMetadata.mimeType };
+                        uploadedFileMetadata.push(meta);
+                    } catch (uploadError) {
+                        console.error(`Error uploading ${file.name}:`, uploadError);
+                        throw new Error(`Failed to upload ${file.name}: ${uploadError.message}`);
+                    }
                 }
+                uploadResults.push(meta);
             }
 
             hideProgressBar();
@@ -1234,30 +1198,125 @@ async function handleSendMessage(event) {
             }
         }
 
-        // Count Input Tokens
-        try {
-            // Include system instruction and file content for accurate count
-            const countResult = await model.countTokens({
-                contents: [{ role: 'user', parts: contentParts }],
-                systemInstruction: SYSTEM_INSTRUCTION
-            });
+        messages.push({
+            id: responseId,
+            role: 'model',
+            text: '',
+            tokenCounts: { input: 0, output: 0 } // Initialize token counts
+        });
 
-            const count = countResult.totalTokens;
-            console.log(`Input Token Count: ${count}`);
+        // Render to show user message and model placeholder
+        render();
 
-            // Update the UI with input tokens immediately
-            const modelMessageIndex = messages.findIndex(msg => msg.id === responseId);
-            if (modelMessageIndex !== -1) {
-                messages[modelMessageIndex].tokenCounts.input = count;
-                // Force a render to show the "Analyzing (X tokens)..." state
-                render();
+        // Send message to Gemini API and stream the response (with key rotation retries)
+        let result = null;
+        let attempt = 0;
+        const maxAttempts = API_KEYS.length > 1 ? API_KEYS.length : 3;
+        let waitDelay = 7000;
+
+        while (attempt < maxAttempts) {
+            try {
+                // Initialize chat session if it doesn't exist
+                const selectedModel = modelSelect ? modelSelect.value : MODEL_NAME;
+                const model = genAI.getGenerativeModel({ model: selectedModel });
+                console.log(`Using model: ${selectedModel}`);
+
+                if (!chatSession) {
+                    const safetySettings = [
+                        {
+                            category: HarmCategory.HARM_CATEGORY_HARASSMENT,
+                            threshold: HarmBlockThreshold.BLOCK_NONE
+                        },
+                        {
+                            category: HarmCategory.HARM_CATEGORY_HATE_SPEECH,
+                            threshold: HarmBlockThreshold.BLOCK_NONE
+                        },
+                        {
+                            category: HarmCategory.HARM_CATEGORY_SEXUALLY_EXPLICIT,
+                            threshold: HarmBlockThreshold.BLOCK_NONE
+                        },
+                        {
+                            category: HarmCategory.HARM_CATEGORY_DANGEROUS_CONTENT,
+                            threshold: HarmBlockThreshold.BLOCK_NONE
+                        }
+                    ];
+
+                    const history = [];
+                    // Map existing conversation history into Gemini format (user vs model)
+                    // Skip the very first welcome message, and exclude the current user message (at messages.length - 2) and the empty model placeholder (at messages.length - 1)
+                    if (messages.length > 2) {
+                        for (let idx = 1; idx < messages.length - 2; idx++) {
+                            const msg = messages[idx];
+                            if (msg.text && (msg.role === 'user' || msg.role === 'model')) {
+                                history.push({
+                                    role: msg.role === 'model' ? 'model' : 'user',
+                                    parts: [{ text: msg.text }]
+                                });
+                            }
+                        }
+                    }
+
+                    chatSession = model.startChat({
+                        history: history,
+                        safetySettings,
+                        generationConfig: {
+                            temperature: 0.4,
+                            maxOutputTokens: 64000 // Increase limit to prevent truncation
+                        },
+                        systemInstruction: SYSTEM_INSTRUCTION
+                    });
+                }
+
+                // Count Input Tokens
+                try {
+                    // Include system instruction and file content for accurate count
+                    const countResult = await model.countTokens({
+                        contents: [{ role: 'user', parts: contentParts }],
+                        systemInstruction: SYSTEM_INSTRUCTION
+                    });
+
+                    const count = countResult.totalTokens;
+                    console.log(`Input Token Count: ${count}`);
+
+                    // Update the UI with input tokens immediately
+                    const modelMessageIndex = messages.findIndex(msg => msg.id === responseId);
+                    if (modelMessageIndex !== -1) {
+                        messages[modelMessageIndex].tokenCounts.input = count;
+                        render();
+                    }
+                } catch (tokenError) {
+                    console.error('Error counting tokens:', tokenError);
+                }
+
+                result = await chatSession.sendMessageStream(contentParts);
+                break; // Success!
+            } catch (error) {
+                const errMsg = (error.message || "").toLowerCase();
+                if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key")) {
+                    if (API_KEYS.length > 1) {
+                        attempt++;
+                        console.warn(`Chat failed with rate limit/quota. Rotating key and retrying immediately...`);
+                        rotateAPIKey();
+                        chatSession = null; // Re-create session with the new key in next iteration
+                        continue;
+                    } else {
+                        attempt++;
+                        if (attempt >= maxAttempts) throw error;
+                        
+                        console.warn(`Rate limit exceeded. Waiting for cooldown...`);
+                        isLoading = true;
+                        loadingMessage = `Rate limit reached. Cooldown active... Retrying in ${waitDelay / 1000}s...`;
+                        render();
+                        await new Promise(resolve => setTimeout(resolve, waitDelay));
+                        loadingMessage = 'Analyst AI is typing...';
+                        render();
+                        waitDelay *= 1.5;
+                        continue;
+                    }
+                }
+                throw error;
             }
-        } catch (tokenError) {
-            console.error('Error counting tokens:', tokenError);
         }
-
-        // Send message to Gemini API and stream the response
-        const result = await chatSession.sendMessageStream(contentParts);
 
         // Process the streamed response
         let responseText = '';
@@ -1307,13 +1366,11 @@ async function handleSendMessage(event) {
     } catch (error) {
         console.error('Error sending message:', error);
 
-        // ... (Error handling remains same)
         let errorMessage = 'Sorry, an error occurred. Please try again.';
 
-        if (error.message && error.message.includes('API key not valid')) {
-            errorMessage = 'API key error: The API key you provided is not valid. Please click the "Set API Key" button to update your API key.';
-            // Keep API key in localStorage as requested
-            API_KEY = '';
+        if (error.message && (error.message.includes('API key not valid') || error.message.includes('API key'))) {
+            errorMessage = 'API key error: The active API key is invalid. Please check your injected keys or environment configuration.';
+            API_KEYS = [];
             genAI = null;
             chatSession = null;
         } else if (error.message) {
@@ -1626,3 +1683,690 @@ function convertTableToMarkdown(tableElement) {
 window.copyToClipboard = copyToClipboard;
 window.showToast = showToast;
 window.convertTableToMarkdown = convertTableToMarkdown;
+
+/* ================================================================
+   INTEGRATED SEQUENTIAL MODE
+   Each task runs as a separate, focused generateContent() call.
+   Files are uploaded once to Gemini File API and cached.
+   Results stream directly into the chat container as model messages.
+   ================================================================ */
+
+// ── Additional State ────────────────────────────────────────────
+let uploadedFileMetadata = []; // Cached file metadata: { name, uri, mimeType }
+let seqTaskOutputs = {};       // Store text results per task: { taskId: text }
+
+// ── JSON Schemas for Structured ESG Extraction ───────────────────
+const Task1Schema = {
+    type: "OBJECT",
+    properties: {
+        companyName: { 
+            type: "STRING", 
+            description: "Name of the company, e.g. Mahindra & Mahindra Ltd. (Include PDF Page # where found, e.g., 'PDF page 1')" 
+        },
+        documentType: { 
+            type: "STRING", 
+            description: "Type of the report, e.g. Annual Report (Include PDF Page # where found, e.g., 'PDF page 1')" 
+        },
+        timePeriodCovered: { 
+            type: "STRING", 
+            description: "State the full time period, e.g. 1 April, 2023 to 31 March, 2024 (Include PDF Page # where found, e.g., 'PDF page 5')" 
+        },
+        boundaryDescription: { 
+            type: "STRING", 
+            description: "Extract the verbatim boundary description (Include PDF Page # where found, e.g., 'PDF page 5')" 
+        },
+        boundaryCompleteness: { 
+            type: "STRING", 
+            description: "Classify as 'Consolidated (within reporting boundary)' if the covered entities account for >=90% of the entire group's total consolidated revenue. Classify as 'Partial' if they account for <90% (e.g. if the scope only covers standalone/specific subsidiaries of a larger consolidated group). Otherwise classify as 'Unclear'.",
+            enum: ["Consolidated (within reporting boundary)", "Partial", "Unclear"] 
+        },
+        validationNotes: { 
+            type: "STRING", 
+            description: "Explain the reasoning for your boundary completeness classification." 
+        },
+        reportingFrameworks: { 
+            type: "STRING", 
+            description: "List any specific reporting frameworks, e.g. GRI, BRSR (Include PDF Page # where found, e.g., 'PDF page 12')" 
+        },
+        ghgAssuranceCoverage: { 
+            type: "STRING", 
+            description: "Extract assurance/verification coverage only for GHG-related data exactly as stated (Include PDF Page # where found, e.g., 'PDF page 45'). If not available, write 'Not Found'." 
+        },
+        ghgAssuranceStandard: { 
+            type: "STRING", 
+            description: "Extract only the named assurance standard used for GHG (e.g. ISAE 3000, ISO 14064-3) exactly as stated (Include PDF Page # where found, e.g., 'PDF page 45'). If not available, write 'Not Found'." 
+        }
+    },
+    required: ["companyName", "documentType", "timePeriodCovered", "boundaryDescription", "boundaryCompleteness", "validationNotes"]
+};
+
+const Task2RowSchema = {
+    type: "OBJECT",
+    properties: {
+        metric: { type: "STRING" },
+        value: { type: "STRING" },
+        unit: { type: "STRING" },
+        pageSource: { type: "STRING" },
+        section: { type: "STRING" },
+        reportingBoundary: { 
+            type: "STRING", 
+            description: "The reporting boundary specifically applicable to this metric/section (e.g. 'Standalone Operations of M&M Ltd', 'Specific Manufacturing Facilities', 'Automotive Sector only'). Do NOT copy the general report boundary blindly. Check the specific section text/footnotes to determine if a narrower boundary applies." 
+        }
+    },
+    required: ["metric", "value", "unit", "pageSource", "section", "reportingBoundary"]
+};
+
+const Task2Schema = {
+    type: "OBJECT",
+    properties: {
+        ghgTable: { type: "ARRAY", items: Task2RowSchema, description: "GHG Emissions Data table. Only include metrics with data actually available in the report. If a metric is missing/not disclosed, do not include it." },
+        waterTable: { type: "ARRAY", items: Task2RowSchema, description: "Water Data table. Only include metrics with data actually available." },
+        waterStressedTable: { type: "ARRAY", items: Task2RowSchema, description: "Water Data in Water-Stressed Regions table. Only include metrics with data actually available." },
+        wasteGenerationTable: { type: "ARRAY", items: Task2RowSchema, description: "Waste Generation Data table. Only include metrics with data actually available." },
+        wasteDisposalTable: { type: "ARRAY", items: Task2RowSchema, description: "Waste Disposal & Treatment Data table. Only include metrics with data actually available." },
+        pollutantsTable: { type: "ARRAY", items: Task2RowSchema, description: "Air & Water Pollutants Data table. Only include metrics with data actually available." },
+        energyTable: { type: "ARRAY", items: Task2RowSchema, description: "Energy Data table. Only include metrics with data actually available." }
+    },
+    required: ["ghgTable", "waterTable", "waterStressedTable", "wasteGenerationTable", "wasteDisposalTable", "pollutantsTable", "energyTable"]
+};
+
+const FinancialRowSchema = {
+    type: "OBJECT",
+    properties: {
+        metric: { type: "STRING" },
+        value: { type: "STRING" },
+        unitCurrency: { type: "STRING" },
+        pageSource: { type: "STRING" },
+        section: { type: "STRING" }
+    },
+    required: ["metric", "value", "unitCurrency", "pageSource", "section"]
+};
+
+const Task3Schema = {
+    type: "OBJECT",
+    properties: {
+        businessOverview: { type: "STRING", description: "Concise summary of the business (Include PDF Page #, e.g. 'PDF page 12')" },
+        segmentInformation: { type: "STRING", description: "List each business segment with description and revenue (Include PDF Page #)" },
+        productBreakdown: { type: "STRING", description: "List each product/category/service with description and revenue (Include PDF Page #)" },
+        outsourcingInformation: { type: "STRING", description: "Explicit outsourcing statements if manufacturing, or N/A (Include PDF Page #)" },
+        granularityBasis: { type: "STRING", description: "State 'Segment-based' or 'Product-based' and why (Include PDF Page #)" },
+        revenueConsistencyStatus: { type: "STRING", description: "State 'Matches Consolidated Revenue' or 'Does Not Match Consolidated Revenue' (Include PDF Page #)" },
+        financialTable: { type: "ARRAY", items: FinancialRowSchema, description: "Financial Data Table. Strictly include Consolidated Revenue, Segment Revenues, Product Revenues, and Consistency Check results." }
+    },
+    required: ["businessOverview", "segmentInformation", "productBreakdown", "outsourcingInformation", "granularityBasis", "revenueConsistencyStatus", "financialTable"]
+};
+
+const Task4Schema = {
+    type: "OBJECT",
+    properties: {
+        dataAvailabilityNotes: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+            description: "List of sentences specifically explaining why any environmental or financial data is missing, unavailable, not reported, or excluded from the reporting boundary. Do NOT include general statements about reporting scope, boundaries, frameworks, or standard business descriptions. If no data is missing or no reasons are given, return an empty array."
+        }
+    },
+    required: ["dataAvailabilityNotes"]
+};
+
+const Task5Schema = {
+    type: "OBJECT",
+    properties: {
+        qcChecks: {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    checkName: { type: "STRING", description: "Name of the QC check (e.g. Transcription Check, Year Check, Column Alignment, etc.)" },
+                    status: { type: "STRING", description: "Status: 'Passed' or 'Failed / Discrepancy Found'" },
+                    findings: { type: "STRING", description: "Details of any corrections, discrepancies, missed data, or anomalies found during this check. If no issues were found, state 'Passed successfully'." }
+                },
+                required: ["checkName", "status", "findings"]
+            },
+            description: "List of Quality Control checklist audits and findings. Do NOT re-output the full extracted tables. Output ONLY the checklist findings, corrections, and any missed data identified."
+        }
+    },
+    required: ["qcChecks"]
+};
+
+function repairTruncatedJson(jsonStr) {
+    jsonStr = jsonStr.trim();
+    let insideString = false;
+    let escape = false;
+    const stack = [];
+    let cleanStr = "";
+    
+    for (let i = 0; i < jsonStr.length; i++) {
+        const char = jsonStr[i];
+        cleanStr += char;
+        
+        if (escape) {
+            escape = false;
+            continue;
+        }
+        
+        if (char === '\\') {
+            escape = true;
+            continue;
+        }
+        
+        if (char === '"') {
+            insideString = !insideString;
+            continue;
+        }
+        
+        if (!insideString) {
+            if (char === '{' || char === '[') {
+                stack.push(char);
+            } else if (char === '}') {
+                if (stack[stack.length - 1] === '{') {
+                    stack.pop();
+                }
+            } else if (char === ']') {
+                if (stack[stack.length - 1] === '[') {
+                    stack.pop();
+                }
+            }
+        }
+    }
+    
+    let repaired = cleanStr;
+    
+    if (insideString) {
+        if (escape) {
+            repaired = repaired.slice(0, -1);
+        }
+        repaired += '"';
+    }
+    
+    repaired = repaired.trim();
+    if (repaired.endsWith(',')) {
+        repaired = repaired.slice(0, -1).trim();
+    }
+    if (repaired.endsWith(':')) {
+        repaired += ' []';
+    }
+    
+    while (stack.length > 0) {
+        const openChar = stack.pop();
+        if (openChar === '{') {
+            repaired = repaired.trim();
+            if (repaired.endsWith(',')) repaired = repaired.slice(0, -1).trim();
+            repaired += '}';
+        } else if (openChar === '[') {
+            repaired = repaired.trim();
+            if (repaired.endsWith(',')) repaired = repaired.slice(0, -1).trim();
+            repaired += ']';
+        }
+    }
+    
+    return repaired;
+}
+
+// ── Helper functions to convert JSON output to Markdown ──────────
+function formatTask1ToMarkdown(data) {
+    if (!data) return "No data returned.";
+    return `*   **Company Name:** ${data.companyName || 'N/A'}
+*   **Document Type:** ${data.documentType || 'N/A'}
+*   **Time Period Covered:** ${data.timePeriodCovered || 'N/A'}
+*   **Boundary Description:** ${data.boundaryDescription || 'N/A'}
+*   **Boundary Completeness Classification:** ${data.boundaryCompleteness || 'N/A'}
+*   **Validation Notes:** ${data.validationNotes || 'N/A'}
+*   **Reporting Frameworks Mentioned:** ${data.reportingFrameworks || 'N/A'}
+*   **GHG Assurance Coverage (If Available):** ${data.ghgAssuranceCoverage || 'N/A'}
+*   **GHG Assurance Standard (If Available):** ${data.ghgAssuranceStandard || 'N/A'}`;
+}
+
+function formatTask2ToMarkdown(data) {
+    if (!data) return "No data returned.";
+    
+    let md = "";
+    const headers = ["Metric", "Value", "Unit", "Page Source (PDF#)", "Section", "Reporting Boundary"];
+    
+    const tables = [
+        { title: "GHG Emissions Data", key: "ghgTable" },
+        { title: "Water Data", key: "waterTable" },
+        { title: "Water Data in Water-Stressed Regions", key: "waterStressedTable" },
+        { title: "Waste Generation Data", key: "wasteGenerationTable" },
+        { title: "Waste Disposal & Treatment Data", key: "wasteDisposalTable" },
+        { title: "Air & Water Pollutants Data", key: "pollutantsTable" },
+        { title: "Energy Data", key: "energyTable" }
+    ];
+    
+    let hasAnyData = false;
+    
+    tables.forEach((t, index) => {
+        const rows = data[t.key];
+        if (rows && rows.length > 0) {
+            hasAnyData = true;
+            if (index > 0 && md) md += "\n\n";
+            md += `**${t.title}**\n\n`;
+            md += `| ${headers.join(" | ")} |\n`;
+            md += `| ${headers.map(() => "---").join(" | ")} |\n`;
+            rows.forEach(r => {
+                md += `| ${r.metric || 'N/A'} | ${r.value || 'N/A'} | ${r.unit || 'N/A'} | ${r.pageSource || 'N/A'} | ${r.section || 'N/A'} | ${r.reportingBoundary || 'N/A'} |\n`;
+            });
+        }
+    });
+    
+    if (!hasAnyData) {
+        md = "No environmental data points found in the document.";
+    }
+    
+    return md;
+}
+
+function formatTask3ToMarkdown(data) {
+    if (!data) return "No data returned.";
+    
+    let md = `*   **Business Overview:** ${data.businessOverview || 'N/A'}
+*   **Segment Information/Description:** ${data.segmentInformation || 'N/A'}
+*   **Product Breakdown Information:** ${data.productBreakdown || 'N/A'}
+*   **Outsourcing Information:** ${data.outsourcingInformation || 'N/A'}
+*   **Granularity Basis for Mapping:** ${data.granularityBasis || 'N/A'}
+*   **Revenue Consistency Status:** ${data.revenueConsistencyStatus || 'N/A'}`;
+    
+    if (data.financialTable && data.financialTable.length > 0) {
+        const headers = ["Metric", "Value", "Unit / Currency", "Page Source (PDF#)", "Section"];
+        md += `\n\n**Financial Data Table**\n\n`;
+        md += `| ${headers.join(" | ")} |\n`;
+        md += `| ${headers.map(() => "---").join(" | ")} |\n`;
+        data.financialTable.forEach(r => {
+            md += `| ${r.metric || 'N/A'} | ${r.value || 'N/A'} | ${r.unitCurrency || 'N/A'} | ${r.pageSource || 'N/A'} | ${r.section || 'N/A'} |\n`;
+        });
+    } else {
+        md += `\n\nNo financial data points found.`;
+    }
+    
+    return md;
+}
+
+function formatTask4ToMarkdown(data) {
+    if (!data) return "No data returned.";
+    
+    let md = `**Data Availability Notes**\n\n`;
+    
+    if (data.dataAvailabilityNotes && data.dataAvailabilityNotes.length > 0) {
+        data.dataAvailabilityNotes.forEach(note => {
+            md += `*   ${note}\n`;
+        });
+    } else {
+        md += `No data availability notes recorded.`;
+    }
+    
+    return md;
+}
+
+function formatTask5ToMarkdown(data) {
+    if (!data || !data.qcChecks || data.qcChecks.length === 0) return "No QC checklist data generated.";
+    
+    let md = "**Quality Control (QC) Audit Findings**\n\n";
+    md += "| QC Check | Status | Findings / Corrections / Missed Data |\n";
+    md += "| --- | --- | --- |\n";
+    
+    data.qcChecks.forEach(c => {
+        const isPassed = c.status.toLowerCase().includes("passed");
+        const statusEmoji = isPassed ? "✅ Passed" : "⚠️ Discrepancy/Correction";
+        let findingsClean = c.findings ? c.findings : 'N/A';
+        // Escape pipe characters to prevent breaking table borders
+        findingsClean = findingsClean.replace(/\|/g, '\\|');
+        // Convert newlines to HTML break tags for multiline cell support
+        findingsClean = findingsClean.replace(/\n/g, '<br>');
+        md += `| ${c.checkName} | ${statusEmoji} | ${findingsClean} |\n`;
+    });
+    
+    return md;
+}
+
+function getTaskSchemaAndFormatter(taskName) {
+    const name = taskName.toLowerCase();
+    if (name.includes("task 1") || name.includes("document identification") || name.includes("reporting scope")) {
+        return { schema: Task1Schema, formatter: formatTask1ToMarkdown };
+    }
+    if (name.includes("task 2") || name.includes("granular environmental") || name.includes("environmental data")) {
+        return { schema: Task2Schema, formatter: formatTask2ToMarkdown };
+    }
+    if (name.includes("task 3") || name.includes("business context") || name.includes("financial data")) {
+        return { schema: Task3Schema, formatter: formatTask3ToMarkdown };
+    }
+    if (name.includes("task 4") || name.includes("missing information") || name.includes("auditor mode")) {
+        return { schema: Task4Schema, formatter: formatTask4ToMarkdown };
+    }
+    if (name.includes("task 5") || name.includes("quality control") || name.includes("qc checklist")) {
+        return { schema: Task5Schema, formatter: formatTask5ToMarkdown };
+    }
+    return { schema: null, formatter: null };
+}
+
+// Note: Mode selector DOM reference was removed since Chat mode was eliminated.
+
+function parseTasksFromPrompt(promptText) {
+    const tasks = [];
+    const parts = promptText.split(/(?=\*\*Task \d+:)/g);
+    const globalContext = parts[0].trim();
+    
+    for (let i = 1; i < parts.length; i++) {
+        const part = parts[i].trim();
+        if (!part) continue;
+        
+        const lines = part.split('\n');
+        const firstLine = lines[0].replace(/\*\*|#/g, '').trim();
+        
+        tasks.push({
+            name: firstLine,
+            prompt: part
+        });
+    }
+    
+    return { globalContext, tasks };
+}
+
+async function runAllSequentialTasks() {
+    if (isRunningSeq) return;
+    if (API_KEYS.length === 0) {
+        showToast("No Gemini API keys configured. Please inject keys via environment/build.", "error");
+        return;
+    }
+    if (seqTasks.length === 0) { showToast('No tasks defined. Load a preset first.', 'error'); return; }
+    if (uploadedFiles.length === 0) { showToast('Please upload at least one document first.', 'error'); return; }
+
+    isRunningSeq = true;
+    isLoading = true;
+    loadingMessage = `Starting sequential extraction...`;
+    render();
+
+    // Reset task outputs
+    seqTaskOutputs = {};
+
+    // Clear active chat session to ensure clean state
+    chatSession = null;
+
+    try {
+        // Upload any files that aren't uploaded yet
+        updateProgressBar(0, "Preparing files...");
+        const uploadResults = [];
+        for (let i = 0; i < uploadedFiles.length; i++) {
+            const file = uploadedFiles[i];
+            let meta = uploadedFileMetadata.find(m => m.name === file.name);
+            if (!meta) {
+                updateProgressBar((i / uploadedFiles.length) * 100, `Uploading ${file.name}...`);
+                try {
+                    const uploadedMeta = await uploadFileToGemini(file);
+                    meta = { name: file.name, uri: uploadedMeta.uri, mimeType: uploadedMeta.mimeType };
+                    uploadedFileMetadata.push(meta);
+                } catch (err) {
+                    console.error(`Failed to upload ${file.name}:`, err);
+                    showToast(`Upload failed: ${err.message}`, 'error');
+                    isRunningSeq = false;
+                    isLoading = false;
+                    hideProgressBar();
+                    render();
+                    return;
+                }
+            }
+            uploadResults.push(meta);
+        }
+        hideProgressBar();
+
+        // Retrieve other settings
+        const globalCtx = seqGlobalContext || '';
+        const passPrev = true;
+        const stopOnError = true;
+        let prevOutput = '';
+
+        const selectedModel = modelSelect ? modelSelect.value : MODEL_NAME;
+        const model = genAI.getGenerativeModel({ model: selectedModel });
+
+        // Add a single consolidated user query for the entire run
+        const userText = `**[Sequential Run] Starting analysis using ${seqTasks.length} tasks...**`;
+        messages.push({
+            id: Date.now(),
+            role: 'user',
+            text: userText
+        });
+        render();
+
+        // Add a single consolidated model response placeholder
+        const consolidatedResponseId = Date.now() + 1;
+        messages.push({
+            id: consolidatedResponseId,
+            role: 'model',
+            text: '',
+            tokenCounts: { input: 0, output: 0 }
+        });
+        render();
+
+        let consolidatedText = '';
+        let completedTasksInputTokens = 0;
+        let completedTasksOutputTokens = 0;
+
+        // Process tasks sequentially
+        for (let i = 0; i < seqTasks.length; i++) {
+            const task = seqTasks[i];
+            
+            isLoading = true;
+            loadingMessage = `Running Task ${i + 1}/${seqTasks.length}: ${task.name}...`;
+            render();
+
+            const taskHeader = (i === 0) ? `## ⚡ ${task.name}\n\n` : `\n\n---\n\n## ⚡ ${task.name}\n\n`;
+            const baseContentBeforeTask = consolidatedText;
+            
+            // Append task header to the consolidated message
+            let modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
+            if (modelMessageIndex !== -1) {
+                messages[modelMessageIndex].text = baseContentBeforeTask + taskHeader;
+                render();
+            }
+
+            try {
+                // Resolve task schema & formatter
+                const { schema, formatter } = getTaskSchemaAndFormatter(task.name);
+
+                // Build prompt
+                let taskPrompt = '';
+                if (globalCtx) {
+                    taskPrompt += `**GLOBAL CONTEXT & RULES (apply to all tasks):**\n${globalCtx}\n\n---\n\n`;
+                }
+                taskPrompt += task.prompt;
+                if (passPrev && prevOutput && i > 0) {
+                    taskPrompt += `\n\n---\n**OUTPUT FROM PREVIOUS TASK (for reference only):**\n${prevOutput}`;
+                }
+
+                if (schema) {
+                    taskPrompt += `\n\nCRITICAL: You MUST respond with a JSON object that strictly adheres to the requested JSON schema structure. Do not output markdown tables, HTML, or conversational text. Output ONLY the raw JSON matching the schema. All fields should be fully populated based on the uploaded documents.`;
+                }
+
+                const parts = [{ text: taskPrompt }];
+                for (const meta of uploadResults) {
+                    parts.push({
+                        fileData: {
+                            mimeType: meta.mimeType,
+                            fileUri: meta.uri
+                        }
+                    });
+                }
+
+                // Count input tokens and add to consolidated count
+                let taskInputTokens = 0;
+                try {
+                    const countResult = await model.countTokens({
+                        contents: [{ role: 'user', parts: parts }],
+                        systemInstruction: SYSTEM_INSTRUCTION
+                    });
+                    taskInputTokens = countResult.totalTokens;
+                    modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
+                    if (modelMessageIndex !== -1) {
+                        messages[modelMessageIndex].tokenCounts.input = completedTasksInputTokens + taskInputTokens;
+                    }
+                } catch (e) {
+                    console.error('Error counting input tokens for task:', e);
+                }
+
+                // Stream response with retries on 429
+                const genConfig = {
+                    temperature: 0.25,
+                    maxOutputTokens: 65536
+                };
+
+                if (schema) {
+                    genConfig.responseMimeType = "application/json";
+                    genConfig.responseSchema = schema;
+                }
+
+                let result = null;
+                let attempt = 0;
+                const maxAttempts = API_KEYS.length > 1 ? API_KEYS.length : 3;
+                let waitDelay = 7000;
+
+                while (attempt < maxAttempts) {
+                    try {
+                        // Re-get model instance with the current active key
+                        const activeModel = genAI.getGenerativeModel({ model: selectedModel });
+                        result = await activeModel.generateContentStream({
+                            contents: [{ role: 'user', parts: parts }],
+                            systemInstruction: SYSTEM_INSTRUCTION,
+                            generationConfig: genConfig
+                        });
+                        break; // Success! Break out of the retry loop
+                    } catch (streamError) {
+                        const errMsg = (streamError.message || "").toLowerCase();
+                        if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key")) {
+                            if (API_KEYS.length > 1) {
+                                attempt++;
+                                console.warn(`Task ${task.name} failed with rate limit/quota. Rotating key and retrying immediately...`);
+                                rotateAPIKey();
+                                continue;
+                            } else {
+                                attempt++;
+                                if (attempt >= maxAttempts) throw streamError;
+                                
+                                console.warn(`Rate limit / Quota exceeded (429). Retrying in ${waitDelay / 1000}s...`);
+                                
+                                // Update loading indicator message to notify the user
+                                isLoading = true;
+                                loadingMessage = `Rate limit reached. Cooldown active... Retrying task in ${waitDelay / 1000}s...`;
+                                render();
+                                
+                                await new Promise(resolve => setTimeout(resolve, waitDelay));
+                                
+                                // Reset loading status back to normal after cooldown
+                                loadingMessage = `Running Task ${i + 1}/${seqTasks.length}: ${task.name}...`;
+                                render();
+                                
+                                waitDelay *= 1.5; // Exponential increase
+                                continue;
+                            }
+                        } else {
+                            throw streamError;
+                        }
+                    }
+                }
+
+                let responseText = '';
+                let taskOutputTokens = 0;
+                let warningMessage = '';
+                for await (const chunk of result.stream) {
+                    responseText += chunk.text();
+                    
+                    if (chunk.candidates && chunk.candidates.length > 0) {
+                        const finishReason = chunk.candidates[0].finishReason;
+                        if (finishReason && finishReason !== 'STOP') {
+                            if (finishReason === 'SAFETY') {
+                                warningMessage = '\n\n**[Generation stopped due to Safety Filters]**';
+                            } else if (finishReason === 'MAX_TOKENS') {
+                                warningMessage = '\n\n**[Generation stopped due to Max Token Limit]**';
+                            } else {
+                                warningMessage = `\n\n**[Generation stopped: ${finishReason}]**`;
+                            }
+                        }
+                    }
+
+                    if (chunk.usageMetadata) {
+                        taskOutputTokens = chunk.usageMetadata.candidatesTokenCount;
+                    }
+
+                    modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
+                    if (modelMessageIndex !== -1) {
+                        // Display progress in the UI during streaming
+                        const displayProgress = schema 
+                            ? `*Extracting structured ESG data...*\n\n\`\`\`json\n${responseText}\n\`\`\`${warningMessage}` 
+                            : (responseText + warningMessage);
+                        messages[modelMessageIndex].text = baseContentBeforeTask + taskHeader + displayProgress;
+                        messages[modelMessageIndex].tokenCounts.output = completedTasksOutputTokens + taskOutputTokens;
+                        render();
+                    }
+                }
+
+                // Process formatting on completion of task
+                let parsedMarkdown = responseText;
+                if (schema && formatter) {
+                    try {
+                        let cleanText = responseText.trim();
+                        if (cleanText.startsWith("```")) {
+                            cleanText = cleanText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+                        }
+                        let parsedData;
+                        try {
+                            parsedData = JSON.parse(cleanText);
+                        } catch (firstErr) {
+                            console.warn("Standard JSON parsing failed, attempting repair:", firstErr);
+                            const repairedText = repairTruncatedJson(cleanText);
+                            parsedData = JSON.parse(repairedText);
+                        }
+                        parsedMarkdown = formatter(parsedData);
+                    } catch (parseErr) {
+                        console.warn("Failed to parse task JSON response, falling back to raw response:", parseErr);
+                    }
+                }
+
+                // Append warning message if any
+                if (warningMessage) {
+                    parsedMarkdown += warningMessage;
+                }
+
+                modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
+                if (modelMessageIndex !== -1) {
+                    messages[modelMessageIndex].text = baseContentBeforeTask + taskHeader + parsedMarkdown;
+                    render();
+                }
+
+                consolidatedText = baseContentBeforeTask + taskHeader + parsedMarkdown;
+                prevOutput = parsedMarkdown;
+                seqTaskOutputs[task.id] = parsedMarkdown;
+
+                // Accumulate tokens on success
+                completedTasksInputTokens += taskInputTokens;
+                completedTasksOutputTokens += taskOutputTokens;
+
+            } catch (taskError) {
+                console.error(`Task ${task.name} failed:`, taskError);
+                modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
+                if (modelMessageIndex !== -1) {
+                    messages[modelMessageIndex].text = baseContentBeforeTask + taskHeader + `**Error:** ${taskError.message}`;
+                    consolidatedText = messages[modelMessageIndex].text;
+                    render();
+                }
+                if (stopOnError) {
+                    modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
+                    if (modelMessageIndex !== -1) {
+                        messages[modelMessageIndex].text += '\n\n⚠️ **Sequential run aborted due to task failure.**';
+                        consolidatedText = messages[modelMessageIndex].text;
+                        render();
+                    }
+                    break;
+                }
+            }
+        }
+
+    } catch (err) {
+        console.error('Sequential run failed:', err);
+        showToast(`Error: ${err.message}`, 'error');
+    } finally {
+        isLoading = false;
+        isRunningSeq = false;
+        render();
+    }
+}
+
+// No-op (initialization removed)
+
+

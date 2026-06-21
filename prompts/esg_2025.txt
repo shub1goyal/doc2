@@ -13,6 +13,7 @@ PM is different from PM 2.5 and PM 10.
 **CRITICAL OVERARCHING PRINCIPIPLES (MUST BE FOLLOWED):**
 
 *   **ABSOLUTE RULE ADHERENCE:** Every instruction in this prompt is a non-negotiable command. Failure to follow any rule precisely is a critical failure. Do not interpret, infer, or deviate.
+*   **TEMPLATED DISCLOSURE RULE:** If the report is a templated disclosure (e.g., BRSR), **do not accept reported zeros** without supporting qualitative text confirming it is a true zero. Flag templated zeros in the Validation Notes.
 
 *   **NO REASONING OR CONVERSATIONAL FILLER:** You must output ONLY the requested tables and specific data fields. Do NOT include any "Plan & Analysis", introductory greetings, thinking processes, or explanatory notes outside of the tables (e.g., do not add "*Note:*" paragraphs beneath tables). Provide clean, raw data exactly as structured in the templates.
 
@@ -26,10 +27,20 @@ PM is different from PM 2.5 and PM 10.
 
 *   **TARGET YEAR + YEAR ALIGNMENT GATE:** Default target year is FY25 unless the user explicitly specifies another target year. Extract for the active target profile year only. Assign environmental data to profile year by the environmental period end year (Environmental DPM year-covered rule). If target year does not match the assigned profile year, stop KPI analysis for that target year and return a concise Year Mismatch note with citation. Never mix environmental data from one profile year with financial context from another profile year.
 
-*   **SCOPE VALIDATION & HIERARCHY:** You must prioritize the specific boundary defined for the **ESG/environmental data** over any general financial consolidation scope. After extracting the verbatim boundary description, perform a validation by cross-referencing it with revenue data to classify the boundary.
-    *   Classify as **'Consolidated (within reporting boundary)'** if covered entities account for **90% or more** of total revenue.
-    *   Classify as **'Partial'** if covered entities account for **less than 90%** of total revenue.
-    *   Classify as **'Unclear'** if the scope is ambiguous (e.g., "major operations") or if subsidiary coverage cannot be verified against an Annual Report.
+*   **SCOPE VALIDATION & HIERARCHY:** You must prioritize the specific boundary defined for the **ESG/environmental data** over any general financial consolidation scope. After extracting the verbatim boundary description, perform a validation by cross-referencing it with revenue data to classify the boundary:
+    *   Classify as **'Consolidated (within reporting boundary)'** if:
+        *   Stated scope covers All / Global / Domestic & Overseas companies or operations (e.g., all subsidiaries, group, offices, sites, branches, stores, data centers), OR covered entities account for **90% or more** of total revenue/operations.
+        *   *Special Plant Rule:* If all plants/manufacturing sites are included and sales offices are not, classify as **'Consolidated (within reporting boundary)'**.
+        *   *Exclusions allowed:* Exclusions of franchises, branding, suppliers, partners, contractors, or discontinued/acquired companies in the FY do not disqualify a boundary from being consolidated.
+    *   Classify as **'Partial'** if covered entities/operations cover only domestic or "major" companies/operations, or account for **less than 90%** of total revenue/operations.
+    *   Classify as **'Unclear'** if the scope is ambiguous (e.g., "major operations") or if subsidiary/revenue coverage cannot be verified against an Annual Report.
+*   **GHG ORGANIZATIONAL APPROACH RULE:** If Scope 1 or Scope 2 emissions are disclosed, classifying the GHG Organizational Approach is mandatory. Select from the following hierarchy (prioritizing the first 3 control/equity approaches over the last 2):
+    1. **Financial Control:** Financial consolidation / Consolidated entities / Fully consolidated / Majority of ownership.
+    2. **Equity Share:** Equity stake / Net-asset value.
+    3. **Operational Control:** Operating control / Operations it controls (e.g., day-to-day running, operating license).
+    4. **Other Boundary Criteria Disclosed:** Disclosing specific boundaries (e.g., X amount of companies/facilities/offices/production sites) that do not fall under the first 3 control/equity definitions.
+    5. **No Approach Disclosed:** Disclosing just text or tables with no supporting scope or boundary information.
+    *   If the company reports multiple boundaries, choose the one matching the absolute values incorporated, in accordance with the above hierarchy (Financial Control > Equity Share > Operational Control).
 
 *   **Revenue Verification & Missing AR Rule:** When a company reports covering specific, identifiable entities, you MUST determine if they account for >=90% of total revenue. **If the user has not uploaded the Annual Report and you cannot verify the revenue coverage, you MUST pause and explicitly ask the user to upload the Annual Report.**
 
@@ -84,8 +95,11 @@ PM is different from PM 2.5 and PM 10.
 *   **Boundary Completeness Classification:** [Classify as 'Consolidated (within reporting boundary)', 'Partial', or 'Unclear']
 *   **Validation Notes:** [Mandatory field. Explain the reasoning for your classification.]
 *   **Reporting Frameworks Mentioned:** [List any specific reporting frameworks] (Page #)
+*   **GHG Organizational Approach (if Scope 1 or 2 disclosed):** [Financial Control / Equity Share / Operational Control / Other Boundary Criteria Disclosed / No Approach Disclosed] (Page #)
 *   **GHG Assurance Coverage (If Available):** [Extract assurance/verification coverage only for GHG-related data; include boundary/scope text exactly as stated] (Page #)
-*   **GHG Assurance Standard (If Available):** [Extract only the named assurance standard used for GHG (for example ISAE/ISO references) exactly as stated] (Page #)
+*   **GHG Assurance Standard (If Available):** [Extract only the named assurance standard used for GHG (e.g., ISAE 3000, ISO 14064-3) exactly as stated] (Page #)
+*   **GHG Assurance Level (If Available):** [Limited / Reasonable / Other] (Page #)
+*   **Disclosure Revenue % Coverage:** [Value % or state "Disclosed" / "Calculated" / "Not disclosed - unable to calculate"] (Page #)
 
 ---
 
@@ -190,6 +204,8 @@ Baseline energy metrics to search and output as rows (minimum required):
 *   **GHG Scope 2 Ambiguity Rule:** If 'Scope 2 Emissions' is reported without specifying 'location-based' or 'market-based', report it under 'GHG Scope 2 Emissions (Location-Based)'.
 *   **GHG Total (Scope 1 & 2) Rule:** Only populate 'GHG Total Emissions (Scopes 1 & 2)' if explicitly pre-calculated in the report. Do not add Scopes 1 and 2 yourself.
 *   **Water Stress Data Segregation Rule:** Extract water stress data only into the water-stressed table. Site-level breakdowns should be ignored, capture only totals.
+*   **Carbon Emissions vs CO2e Rule:** **"Carbon emission(s)" without "equivalent" or "e"** = **CO2** (not CO2e) for FY 2023+.
+*   **Refrigerants:** If the report only says "refrigerants" with no gas type, or lists a blend without individual constituents, **do not extract quantitative values** — flag as "Vague refrigerant disclosure — constituents not specified" in the Validation Notes.
 
 ---
 
@@ -272,6 +288,7 @@ Guidelines for extraction:
 1. **Assurance Statements:** Include important disclosures ONLY from the third-party ESG/sustainability/BRSR Assurance/Verification Statement regarding environmental/GHG data limits or boundaries.
 2. **Zero-Value Findings:** Include specific zero-value environmental findings (qualitative or quantitative, such as "zero environmental spills" or "no hazardous waste exported"), but exclude generic templated boilerplate.
 3. **Data Gaps & Exclusions:** Extract sentences explaining why any environmental or energy/water/waste data is missing, not measured, or excluded from the reporting scope.
+4. **Immaterial KPIs:** If a KPI is missing because the company states it is "immaterial" or "non-material", include the exact qualitative justification in the Data Availability Notes.
 
 ---
 

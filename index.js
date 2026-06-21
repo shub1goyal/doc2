@@ -1836,54 +1836,16 @@ const VarianceTask1Schema = {
                     targetYearUnit: { type: "STRING" },
                     previousYearValue: { type: "STRING" },
                     previousYearUnit: { type: "STRING" },
-                    pageSource: { type: "STRING" }
+                    variancePercent: { type: "STRING", description: "Calculated percentage variance, e.g. 25.3%. If no variance, write '0%'." },
+                    direction: { type: "STRING", enum: ["Increase", "Decrease", "N/A"] },
+                    reason: { type: "STRING", description: "Verbatim or near-verbatim reason explaining the change if variance is >20%. If variance is <=20% or no reason is provided, write 'N/A'." },
+                    pageSource: { type: "STRING", description: "PDF Page source where the values and reasons are mentioned" }
                 },
-                required: ["kpiName", "targetYearValue", "targetYearUnit", "previousYearValue", "previousYearUnit", "pageSource"]
+                required: ["kpiName", "targetYearValue", "targetYearUnit", "previousYearValue", "previousYearUnit", "variancePercent", "direction", "reason", "pageSource"]
             }
         }
     },
     required: ["kpis"]
-};
-
-const VarianceTask2Schema = {
-    type: "OBJECT",
-    properties: {
-        highVarianceKpis: {
-            type: "ARRAY",
-            items: {
-                type: "OBJECT",
-                properties: {
-                    kpiName: { type: "STRING" },
-                    previousYearValue: { type: "STRING" },
-                    targetYearValue: { type: "STRING" },
-                    variancePercent: { type: "STRING", description: "Calculated percentage variance, e.g. 25.3%" },
-                    direction: { type: "STRING", enum: ["Increase", "Decrease"] }
-                },
-                required: ["kpiName", "previousYearValue", "targetYearValue", "variancePercent", "direction"]
-            }
-        }
-    },
-    required: ["highVarianceKpis"]
-};
-
-const VarianceTask3Schema = {
-    type: "OBJECT",
-    properties: {
-        explanations: {
-            type: "ARRAY",
-            items: {
-                type: "OBJECT",
-                properties: {
-                    kpiName: { type: "STRING" },
-                    variancePercent: { type: "STRING" },
-                    reason: { type: "STRING", description: "Verbatim or near-verbatim reason explaining the change" },
-                    pageSource: { type: "STRING" }
-                },
-                required: ["kpiName", "variancePercent", "reason", "pageSource"]
-            }
-        }
-    },
-    required: ["explanations"]
 };
 
 function repairTruncatedJson(jsonStr) {
@@ -2077,35 +2039,13 @@ function formatTask5ToMarkdown(data) {
 
 function formatVarianceTask1ToMarkdown(data) {
     if (!data || !data.kpis || data.kpis.length === 0) return "No KPIs identified.";
-    let md = "**Identified Multi-Year KPIs from Chat History:**\n\n";
-    md += "| KPI Name | Target Year Value | Previous Year Value | Page Source (PDF#) |\n";
-    md += "| --- | --- | --- | --- |\n";
+    let md = "**ESG KPI Variance Analysis:**\n\n";
+    md += "| KPI Name | Target Year Value | Previous Year Value | Variance (%) | Direction | Explanation / Reason | Page Source (PDF#) |\n";
+    md += "| --- | --- | --- | --- | --- | --- | --- |\n";
     data.kpis.forEach(k => {
-        md += `| ${k.kpiName} | ${k.targetYearValue} ${k.targetYearUnit} | ${k.previousYearValue} ${k.previousYearUnit} | ${k.pageSource} |\n`;
-    });
-    return md;
-}
-
-function formatVarianceTask2ToMarkdown(data) {
-    if (!data || !data.highVarianceKpis || data.highVarianceKpis.length === 0) return "No KPIs found with >20% variance.";
-    let md = "**KPIs with >20% Variance:**\n\n";
-    md += "| KPI Name | Previous Year Value | Target Year Value | Variance (%) | Direction |\n";
-    md += "| --- | --- | --- | --- | --- |\n";
-    data.highVarianceKpis.forEach(k => {
-        md += `| ${k.kpiName} | ${k.previousYearValue} | ${k.targetYearValue} | ${k.variancePercent} | ${k.direction} |\n`;
-    });
-    return md;
-}
-
-function formatVarianceTask3ToMarkdown(data) {
-    if (!data || !data.explanations || data.explanations.length === 0) return "No explanations found in the documents.";
-    let md = "**Explanations for Variances (>20%):**\n\n";
-    md += "| KPI Name | Variance (%) | Explanation / Reason | Page Source (PDF#) |\n";
-    md += "| --- | --- | --- | --- |\n";
-    data.explanations.forEach(e => {
-        let reasonClean = e.reason ? e.reason : 'N/A';
+        let reasonClean = k.reason ? k.reason : 'N/A';
         reasonClean = reasonClean.replace(/\|/g, '\\|');
-        md += `| ${e.kpiName} | ${e.variancePercent} | ${reasonClean} | ${e.pageSource} |\n`;
+        md += `| ${k.kpiName} | ${k.targetYearValue} ${k.targetYearUnit} | ${k.previousYearValue} ${k.previousYearUnit} | ${k.variancePercent} | ${k.direction} | ${reasonClean} | ${k.pageSource} |\n`;
     });
     return md;
 }
@@ -2119,12 +2059,6 @@ function getTaskSchemaAndFormatter(taskName) {
         if (active && active.name.toLowerCase().includes("variance")) {
             if (name.includes("task 1")) {
                 return { schema: VarianceTask1Schema, formatter: formatVarianceTask1ToMarkdown };
-            }
-            if (name.includes("task 2")) {
-                return { schema: VarianceTask2Schema, formatter: formatVarianceTask2ToMarkdown };
-            }
-            if (name.includes("task 3")) {
-                return { schema: VarianceTask3Schema, formatter: formatVarianceTask3ToMarkdown };
             }
             return { schema: null, formatter: null };
         }

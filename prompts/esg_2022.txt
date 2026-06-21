@@ -12,11 +12,22 @@ PM is different from PM 2.5 and PM 10.
 **CRITICAL OVERARCHING PRINCIPIPLES (MUST BE FOLLOWED):**
 
 *   **TRANSLATION TO ENGLISH:** If the source document is in a language other than English, you MUST translate all extracted information into English for the final output.
+*   **TEMPLATED DISCLOSURE RULE:** If the report is a templated disclosure (e.g., BRSR), **do not accept reported zeros** without supporting qualitative text confirming it is a true zero. Flag templated zeros in the Validation Notes.
 *   **TARGET YEAR FOCUS:** EXTRACT DATA FOR THE **2022 REPORTING PERIOD ONLY.** The primary definition of a 2022 period is one that **ends in the 2022 calendar year** (e.g., FY22, 2021-2022).
-*   **SCOPE VALIDATION & HIERARCHY:** You must prioritize the specific boundary defined for the **ESG/environmental data** over any general financial consolidation scope mentioned elsewhere. After extracting the verbatim boundary description, you must perform a validation by cross-referencing it with other information in the report (e.g., lists of subsidiaries, operational overview). You will then classify this boundary and explain your reasoning.
-    *   Classify as **'Full'** if the stated scope appears to cover all the company's relevant operations.
-    *   Classify as **'Partial'** if the scope explicitly excludes certain entities (e.g., "covers 5 of our 8 subsidiaries").
-    *   Classify as **'Unclear'** if the scope uses vague language that cannot be definitively verified (e.g., "covers our major plants").
+*   **SCOPE VALIDATION & HIERARCHY:** You must prioritize the specific boundary defined for the **ESG/environmental data** over any general financial consolidation scope mentioned elsewhere. After extracting the verbatim boundary description, you must perform a validation by cross-referencing it with other information in the report (e.g., lists of subsidiaries, operational overview). You will then classify this boundary and explain your reasoning:
+    *   Classify as **'Full'** if:
+        *   Stated scope covers All / Global / Domestic & Overseas companies or operations (e.g., all subsidiaries, group, offices, sites, branches, stores, data centers).
+        *   *Special Plant Rule:* If all plants/manufacturing sites are included and sales offices are not, classify as **'Full'**.
+        *   *Exclusions allowed:* Exclusions of franchises, branding, suppliers, partners, contractors, or discontinued/acquired companies in the FY do not disqualify a boundary from being classified as 'Full'.
+    *   Classify as **'Partial'** if the scope explicitly excludes certain entities, covers only domestic or "major" companies/operations, or covered entities/operations account for less than 90% of total revenue/operations.
+    *   Classify as **'Unclear'** if the scope uses vague language that cannot be definitively verified (e.g., "covers our major plants") or if subsidiary coverage cannot be verified.
+*   **GHG ORGANIZATIONAL APPROACH RULE:** If Scope 1 or Scope 2 emissions are disclosed, classifying the GHG Organizational Approach is mandatory. Select from the following hierarchy (prioritizing the first 3 control/equity approaches over the last 2):
+    1. **Financial Control:** Financial consolidation / Consolidated entities / Fully consolidated / Majority of ownership.
+    2. **Equity Share:** Equity stake / Net-asset value.
+    3. **Operational Control:** Operating control / Operations it controls (e.g., day-to-day running, operating license).
+    4. **Other Boundary Criteria Disclosed:** Disclosing specific boundaries (e.g., X amount of companies/facilities/offices/production sites) that do not fall under the first 3 control/equity definitions.
+    5. **No Approach Disclosed:** Disclosing just text or tables with no supporting scope or boundary information.
+    *   If the company reports multiple boundaries, choose the one matching the absolute values incorporated, in accordance with the above hierarchy (Financial Control > Equity Share > Operational Control).
 *   **COMPREHENSIVE SOURCE SCANNING:** You must extract data from all content types within the document, including standard text, tables, charts, graphs, infographics, and footnotes.
 *   **EXACT NUMERICAL TRANSCRIPTION:** You must transcribe all numerical values exactly as they appear in the source document. **Do not round numbers, alter decimal places, or perform any calculations.** The value you extract must be identical to the value in the report.
 *   **CORRECT COLUMN IDENTIFICATION IN TABLES/CHARTS:** You must use the official **Time Period Covered** as the primary source of truth. When extracting from a table, you must find the data column that corresponds to this period. **CRITICAL:** Be aware that for a fiscal year like 'May 2021 - April 2022' (which is a 2022 period), companies often label the data column **'2021'** because the majority of the months fall in that year. You must correctly identify and extract from this '2021' column as it represents our target 2022 reporting period.
@@ -46,6 +57,11 @@ First, identify the document and the specific scope for its **ESG and Environmen
 *   **Boundary Completeness Classification:** [Classify as 'Full', 'Partial', or 'Unclear' based on your contextual validation.]
 *   **Validation Notes:** [**Mandatory field.** Explain the reasoning for your classification. For example, "Classification is 'Partial' because the boundary states it covers 5 plants, but the company overview on page X mentions a total of 7 plants."]
 *   **Reporting Frameworks Mentioned:** [List any specific reporting frameworks] (Page #)
+*   **GHG Organizational Approach (if Scope 1 or 2 disclosed):** [Financial Control / Equity Share / Operational Control / Other Boundary Criteria Disclosed / No Approach Disclosed] (Page #)
+*   **GHG Assurance Coverage (If Available):** [Extract assurance/verification coverage only for GHG-related data; include boundary/scope text exactly as stated] (Page #)
+*   **GHG Assurance Standard (If Available):** [Extract only the named assurance standard used for GHG (e.g., ISAE 3000, ISO 14064-3) exactly as stated] (Page #)
+*   **GHG Assurance Level (If Available):** [Limited / Reasonable / Other] (Page #)
+*   **Disclosure Revenue % Coverage:** [Value % or state "Disclosed" / "Calculated" / "Not disclosed - unable to calculate"] (Page #)
 
 ---
 
@@ -119,6 +135,7 @@ Use the following separate tables to present your findings for environmental met
 *   **Waste Data: Dynamic KPI Extraction Rule:** You must capture **every individual waste KPI** presented in the report by creating a new row for each, using the exact terminology from the source document. Do NOT infer classifications. Place metrics with keywords like `Generated` in the **Generation** table, and `Recycled`, `Landfilled`, `Disposed` in the **Disposal** table.
 *   **Metric-Specific Boundary Rule:** In the 'Reporting Boundary' column, note any specific boundaries mentioned for an individual metric.
 *   **Water Consumption vs. Usage Rule:** The term 'water usage' is not equivalent to 'water consumption'. Only report a value for 'Total Water consumption' if the document explicitly labels it as 'consumption' or provides direct evidence that they are the same.
+*   **Refrigerants:** If the report only says "refrigerants" with no gas type, or lists a blend without individual constituents, **do not extract quantitative values** — flag as "Vague refrigerant disclosure — constituents not specified" in the Validation Notes.
 
 ---
 
@@ -147,7 +164,7 @@ First, provide the business and segment overview, then extract the key financial
 
 **Task 4: Handle Missing Information (Auditor Mode)**
 
-You will now act as a strict **Data Availability Auditor**. Your sole purpose is to identify valid reasons why a specific **Environmental or Financial data point** from the tables in Task 2 or Task 3 might be missing from the report. You must follow the three-step filtering process below without deviation.
+You will now act as a strict **Data Availability Auditor**. Your sole purpose is to identify valid reasons why a specific **Environmental or Financial data point** from the tables in Task 2 or Task 3 might be missing from the report. If a KPI is missing because the company states it is "immaterial" or "non-material", include the exact qualitative justification in the Data Availability Notes. You must follow the three-step filtering process below without deviation.
 
 **Three-Step Filtering Process:**
 

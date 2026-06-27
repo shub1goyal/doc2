@@ -1857,14 +1857,20 @@ const Task3Schema = {
     type: "OBJECT",
     properties: {
         businessOverview: { type: "STRING", description: "Concise summary of the business (Include PDF Page #, e.g. 'PDF page 12')" },
-        segmentInformation: { type: "STRING", description: "List each business segment with description and revenue (Include PDF Page #)" },
-        productBreakdown: { type: "STRING", description: "List each product/category/service with description and revenue (Include PDF Page #)" },
+        segmentInformation: { 
+            type: "STRING", 
+            description: "List each business segment on a separate line with its qualitative description and revenue/percentage breakdown (Include PDF Page #). Ensure there is a newline character (\\n) between segments." 
+        },
+        productDescription: { 
+            type: "STRING", 
+            description: "List each product/category/service on a separate line with its exact qualitative description. Do NOT include any revenue or percentage breakdown metrics. (Include PDF Page #). Ensure there is a newline character (\\n) between products." 
+        },
         outsourcingInformation: { type: "STRING", description: "Explicit outsourcing statements if manufacturing, or N/A (Include PDF Page #)" },
         granularityBasis: { type: "STRING", description: "State 'Segment-based' or 'Product-based' and why (Include PDF Page #)" },
         revenueConsistencyStatus: { type: "STRING", description: "State 'Matches Consolidated Revenue' or 'Does Not Match Consolidated Revenue' (Include PDF Page #)" },
         financialTable: { type: "ARRAY", items: FinancialRowSchema, description: "Financial Data Table. Strictly include Consolidated Revenue, Segment Revenues, Product Revenues, and Consistency Check results." }
     },
-    required: ["businessOverview", "segmentInformation", "productBreakdown", "outsourcingInformation", "granularityBasis", "revenueConsistencyStatus", "financialTable"]
+    required: ["businessOverview", "segmentInformation", "productDescription", "outsourcingInformation", "granularityBasis", "revenueConsistencyStatus", "financialTable"]
 };
 
 const Task4Schema = {

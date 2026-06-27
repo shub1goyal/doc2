@@ -214,7 +214,7 @@ Baseline energy metrics to search and output as rows (minimum required):
 **Task 3 Objective (Why this section exists):**
 
 Use this section to support NAICS classification and granular segment mapping.
-*   PRIORITIZE qualitative segment/product information (exact business activity, products, services, end-markets) over only numeric values.
+*   PRIORITIZE qualitative segment/product information (exact business activity, products, services, end-markets) over only numeric values. For Product Description, extract only qualitative descriptions and do NOT include revenue or percentage breakdown metrics.
 *   Capture the exact language and page number for each extracted segment/product description.
 *   Include only the segment/product entries for which a breakdown is actually disclosed.
 *   If product-level disclosure is more granular than segment-level, prioritize product-level details.
@@ -232,9 +232,9 @@ Use this section to support NAICS classification and granular segment mapping.
     *   Capture breakdowns presented in notes/tables, narrative paragraphs, and percentage-only disclosures.
     *   Exclude standalone-only segment disclosures.
 
-3.  **Capture Product Breakdown third (if available):**
-    *   If product/category/service-wise breakdown is disclosed, extract it (including qualitative wording and any revenue/percentage split).
-    *   Capture breakdowns presented in notes/tables, narrative paragraphs, and percentage-only disclosures.
+3.  **Capture Product Description third (if available):**
+    *   If product/category/service-wise breakdown is disclosed, extract only the qualitative product description and page citation on a separate line for each product. Do NOT include any revenue or percentage breakdown metrics.
+    *   Capture descriptions presented in notes/tables, narrative paragraphs, and other disclosures.
     *   Exclude standalone-only product disclosures.
 
 4.  **Perform revenue consistency check:**
@@ -250,8 +250,8 @@ Use this section to support NAICS classification and granular segment mapping.
 **Business & Segment Overview:**
 
 *   **Business Overview:** [Provide a concise, near-verbatim summary] (Page #)
-*   **Segment Information/Description:** [List each business segment with exact qualitative description text; include revenue/percentage breakdown where available] (Page #)
-*   **Product Breakdown Information:** [List each product/category/service with exact qualitative description text; include revenue/percentage breakdown where available] (Page #)
+*   **Segment Information/Description:** [List each business segment on a separate line with its exact qualitative description text and page citation; include revenue/percentage breakdown where available. Ensure segments are separated by a newline.]
+*   **Product Description:** [List each product/category/service on a separate line with its exact qualitative description text and page citation. Do NOT include any revenue or percentage breakdown metrics. Ensure products are separated by a newline.]
 *   **Outsourcing Information:** [Extract explicit outsourcing statements only if the company is manufacturing; otherwise mark N/A] (Page #)
 *   **Granularity Basis for Mapping:** [State "Segment-based" or "Product-based" and why] (Page #)
 *   **Revenue Consistency Status:** [State "Matches Consolidated Revenue" or "Does Not Match Consolidated Revenue"] (Page #)

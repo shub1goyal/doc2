@@ -36,6 +36,32 @@ function rotateAPIKey() {
     return true;
 }
 
+function isTransientOrRetryableError(error) {
+    if (!error) return false;
+    const errMsg = (error.message || "").toLowerCase();
+    return (
+        errMsg.includes("429") ||
+        errMsg.includes("quota") ||
+        errMsg.includes("rate limit") ||
+        errMsg.includes("resource exhausted") ||
+        errMsg.includes("api key") ||
+        errMsg.includes("permission") ||
+        errMsg.includes("403") ||
+        errMsg.includes("500") ||
+        errMsg.includes("503") ||
+        errMsg.includes("504") ||
+        errMsg.includes("overloaded") ||
+        errMsg.includes("overload") ||
+        errMsg.includes("demand") || // high demand spike
+        errMsg.includes("unavailable") ||
+        errMsg.includes("deadline") ||
+        errMsg.includes("timeout") ||
+        errMsg.includes("internal error") ||
+        errMsg.includes("try again") ||
+        errMsg.includes("temporarily")
+    );
+}
+
 // Initialize on startup
 initializeGenAI();
 
@@ -1286,11 +1312,10 @@ async function handleSendMessage(event) {
                 result = await chatSession.sendMessageStream(contentParts);
                 break; // Success!
             } catch (error) {
-                const errMsg = (error.message || "").toLowerCase();
-                if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403")) {
+                if (isTransientOrRetryableError(error)) {
                     if (API_KEYS.length > 1) {
                         attempt++;
-                        console.warn(`Chat failed with rate limit/quota or permissions error. Rotating key and retrying immediately...`);
+                        console.warn(`Chat failed with transient error or demand spike. Rotating key and retrying immediately...`);
                         rotateAPIKey();
                         chatSession = null; // Re-create session with the new key in next iteration
                         continue;
@@ -1298,9 +1323,9 @@ async function handleSendMessage(event) {
                         attempt++;
                         if (attempt >= maxAttempts) throw error;
                         
-                        console.warn(`Rate limit exceeded. Waiting for cooldown...`);
+                        console.warn(`Transient/rate limit/demand error encountered. Waiting for cooldown...`);
                         isLoading = true;
-                        loadingMessage = `Rate limit reached. Cooldown active... Retrying in ${waitDelay / 1000}s...`;
+                        loadingMessage = `High demand/rate limit reached. Retrying in ${waitDelay / 1000}s...`;
                         render();
                         await new Promise(resolve => setTimeout(resolve, waitDelay));
                         loadingMessage = 'Analyst AI is typing...';
@@ -2364,22 +2389,21 @@ async function runAllSequentialTasks() {
                         attemptTaskInputTokens = taskInputTokens;
                         break; // Success! Break out of the retry loop
                     } catch (streamError) {
-                        const errMsg = (streamError.message || "").toLowerCase();
-                        if (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403")) {
+                        if (isTransientOrRetryableError(streamError)) {
                             if (API_KEYS.length > 1) {
                                 attempt++;
-                                console.warn(`Task ${task.name} failed with rate limit/quota or permissions error. Rotating key and retrying immediately...`);
+                                console.warn(`Task ${task.name} failed with transient error or demand spike. Rotating key and retrying immediately...`);
                                 rotateAPIKey();
                                 continue;
                             } else {
                                 attempt++;
                                 if (attempt >= maxAttempts) throw streamError;
                                 
-                                console.warn(`Rate limit / Quota exceeded (429). Retrying in ${waitDelay / 1000}s...`);
+                                console.warn(`Task ${task.name} failed with transient/demand error. Retrying in ${waitDelay / 1000}s...`);
                                 
                                 // Update loading indicator message to notify the user
                                 isLoading = true;
-                                loadingMessage = `Rate limit reached. Cooldown active... Retrying task in ${waitDelay / 1000}s...`;
+                                loadingMessage = `High demand/rate limit reached. Retrying task in ${waitDelay / 1000}s...`;
                                 render();
                                 
                                 await new Promise(resolve => setTimeout(resolve, waitDelay));

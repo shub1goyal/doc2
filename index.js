@@ -1441,7 +1441,7 @@ function render() {
             try {
                 // Sanitize and parse markdown content
                 const sanitizedText = message.text.replace(/</g, '&lt;').replace(/>/g, '&gt;');
-                messageContent.innerHTML = marked.parse(message.text);
+                messageContent.innerHTML = marked.parse(message.text, { breaks: true });
             } catch (parseError) {
                 console.error('Markdown parsing error:', parseError);
                 // Fallback to plain text if markdown parsing fails
@@ -2057,12 +2057,14 @@ function formatTask2ToMarkdown(data) {
 function formatTask3ToMarkdown(data) {
     if (!data) return "No data returned.";
     
-    let md = `*   **Business Overview:** ${data.businessOverview || 'N/A'}
-*   **Segment Information/Description:** ${data.segmentInformation || 'N/A'}
-*   **Product Breakdown Information:** ${data.productBreakdown || 'N/A'}
-*   **Outsourcing Information:** ${data.outsourcingInformation || 'N/A'}
-*   **Granularity Basis for Mapping:** ${data.granularityBasis || 'N/A'}
-*   **Revenue Consistency Status:** ${data.revenueConsistencyStatus || 'N/A'}`;
+    let md = `### 🏢 Business & Segment Overview\n\n`;
+    
+    md += `**Business Overview**\n${data.businessOverview || 'N/A'}\n\n`;
+    md += `**Segment Information/Description**\n${data.segmentInformation || 'N/A'}\n\n`;
+    md += `**Product Breakdown Information**\n${data.productBreakdown || 'N/A'}\n\n`;
+    md += `**Outsourcing Information**\n${data.outsourcingInformation || 'N/A'}\n\n`;
+    md += `**Granularity Basis for Mapping**\n${data.granularityBasis || 'N/A'}\n\n`;
+    md += `**Revenue Consistency Status**\n${data.revenueConsistencyStatus || 'N/A'}`;
     
     if (data.financialTable && data.financialTable.length > 0) {
         const headers = ["Metric", "Value", "Unit / Currency", "Page Source (PDF#)", "Section"];

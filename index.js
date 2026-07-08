@@ -86,6 +86,7 @@ const SYSTEM_INSTRUCTION = {
 - Do NOT stop searching the document after finding a metric. You MUST scan the entire document for every KPI and extract all values, including those with minor differences (e.g. 0.1% difference) in separate rows, while consolidating identical values with multiple page references.
 - For greenhouse gases included in disclosures, ONLY list the gases explicitly and qualitatively enumerated in the text. Do NOT derive, infer, or list gases (e.g. the 7 Kyoto gases) based on a general protocol or framework reference (such as 'GHG Protocol') if they are not explicitly named.
 - For immateriality details and YoY variance explanations (>20% YoY change), do NOT add new columns. Instead, capture this qualitative information by adding separate, dedicated rows directly in the respective table (e.g. Metric: "[Metric Name] - Immateriality Details" or "[Metric Name] - YoY Variance Explanation", Value: "[qualitative description/explanation]", Unit: "N/A").
+- Do NOT extract intensity or normalized metrics in any table. This includes any metric expressed per rupee of turnover, per PPP-adjusted turnover, per physical output (per vehicle, per tractor, per tonne of packaging), per employee, or any other ratio/denominator. Only extract absolute values (total tonnes, total GJ, total kilolitres, etc.).
 
 **CRITICAL: Language Requirements**
 - ALWAYS respond in English only, regardless of the document's original language

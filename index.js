@@ -1549,10 +1549,10 @@ function render() {
             const buttonContainer = document.createElement('div');
             buttonContainer.className = 'absolute top-2 right-2 flex space-x-1 opacity-0 group-hover:opacity-100 transition-opacity';
 
-            // Copy button for entire response
+            // Copy button for entire response (markdown)
             const copyButton = document.createElement('button');
             copyButton.className = 'p-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-600';
-            copyButton.title = 'Copy entire response';
+            copyButton.title = 'Copy full response (markdown)';
             copyButton.innerHTML = `
                 <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
                     <path d="M8 3a1 1 0 011-1h2a1 1 0 110 2H9a1 1 0 01-1-1z" />
@@ -1564,7 +1564,53 @@ function render() {
                 copyToClipboard(message.text);
             });
 
+            // Copy all tables button (TSV for Excel)
+            const copyTablesButton = document.createElement('button');
+            copyTablesButton.className = 'p-1 bg-gray-100 hover:bg-gray-200 rounded text-gray-600';
+            copyTablesButton.title = 'Copy all tables (Excel-ready TSV)';
+            copyTablesButton.innerHTML = `
+                <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4" viewBox="0 0 20 20" fill="currentColor">
+                    <path fill-rule="evenodd" d="M5 4a2 2 0 012-2h6a1 1 0 01.707.293l4 4A1 1 0 0118 7v9a2 2 0 01-2 2H7a2 2 0 01-2-2V4zm8 0v3h3L13 4z" clip-rule="evenodd" />
+                </svg>
+            `;
+            copyTablesButton.addEventListener('click', function (e) {
+                e.stopPropagation();
+                const tables = messageContent.querySelectorAll('table');
+                if (tables.length === 0) {
+                    showToast('No tables found in this response.', 'info');
+                    return;
+                }
+                let allTsv = '';
+                tables.forEach((table, idx) => {
+                    // Try to find the preceding heading/bold label for context
+                    let tableTitle = '';
+                    let prev = table.closest('.relative')?.previousElementSibling || table.previousElementSibling;
+                    while (prev) {
+                        const text = prev.textContent.trim();
+                        if (text) { tableTitle = text; break; }
+                        prev = prev.previousElementSibling;
+                    }
+                    if (tableTitle) allTsv += `\n${tableTitle}\n`;
+                    const rows = table.querySelectorAll('tr');
+                    rows.forEach(row => {
+                        const cells = row.querySelectorAll('th, td');
+                        allTsv += Array.from(cells).map(c => c.textContent.trim()).join('\t') + '\n';
+                    });
+                    if (idx < tables.length - 1) allTsv += '\n';
+                });
+
+                if (navigator.clipboard && window.ClipboardItem) {
+                    const tsvBlob = new Blob([allTsv.trim()], { type: 'text/plain' });
+                    navigator.clipboard.write([new ClipboardItem({ 'text/plain': tsvBlob })]).then(() => {
+                        showToast(`All ${tables.length} tables copied! Ready for Excel.`);
+                    }).catch(() => copyToClipboard(allTsv.trim()));
+                } else {
+                    copyToClipboard(allTsv.trim());
+                }
+            });
+
             buttonContainer.appendChild(copyButton);
+            buttonContainer.appendChild(copyTablesButton);
             messageWrapper.appendChild(buttonContainer);
         } else {
             messageContent.textContent = message.text;

@@ -74,6 +74,9 @@ PM is different from PM 2.5 and PM 10.
 
 *   **EMPTY CELL HANDLING:** Never leave a cell truly empty. Use "N/A" when a field is not applicable.
 
+*   **PER-KPI REPORTING BOUNDARY RULE:** For the "Reporting Boundary" column of every row in every table, do NOT blindly copy the general report boundary. For each individual metric, actively check: (1) the specific section header or sub-section boundary statement, (2) footnotes or notes directly adjacent to that data point, (3) assurance statement scopes that reference specific KPIs, (4) any inline qualifier in the text (e.g. "for our 22 manufacturing plants", "for automotive sector only", "standalone basis"). Use the most specific boundary that directly applies to that metric. Only fall back to the general report boundary if no more specific boundary can be found.
+
+
 *   **INTERNAL KPI COVERAGE CHECK:** You must analyze every requested KPI and sub-KPI for the 2023 period, even if it is ultimately not disclosed in the report.
 
 *   **OUTPUT FILTER RULE:** In the final output tables, include rows only for KPIs with data actually available in the report. Do not create placeholder rows for missing KPIs, and do not output "Not Found" rows in the main tables.

@@ -1,0 +1,26 @@
+{
+  "presets": [
+     {
+      "id": "esg-metrics-1",
+      "name": "ESG 2025",
+      "file": "esg_2025.txt",
+      "description": "Analyze all ESG metrics in documents for 2025"
+    },
+    {
+      "id": "esg-metrics-2",
+      "name": "ESG 2024",
+      "file": "esg_2024.txt",
+      "description": "Analyze all ESG metrics in documents for 2024"
+    },
+    {
+      "id": "esg-metrics-3",
+      "name": "ESG 2023",
+      "file": "esg_2023.txt",
+      "description": "Analyze all ESG metrics in documents for 2023"
+    }
+  ]
+}
+
+
+
+

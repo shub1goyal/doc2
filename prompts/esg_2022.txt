@@ -59,16 +59,16 @@ First, identify the document and the specific scope for its **ESG and Environmen
 
 **ESG/Environmental Reporting Scope:**
 *   **Time Period Covered:** [State the full time period for the ESG/Environmental data, e.g., April 1, 2021 to March 31, 2022] (Page #)
-*   **Boundary Description:** [Extract the verbatim description of the organizational boundary for the ESG/environmental data.] (Page #)
+*   **Boundary Description:** [Extract the MOST SPECIFIC operational boundary statement available. Prefer the BRSR section boundary or the assurance statement boundary over the general introduction. If multiple boundary statements exist, list all in order from most specific to least specific, each with its page number.] (Page #)
 *   **Boundary Completeness Classification:** [Classify as 'Full', 'Partial', or 'Unclear' based on your contextual validation.]
-*   **Validation Notes:** [**Mandatory field.** Explain the reasoning for your classification. For example, "Classification is 'Partial' because the boundary states it covers 5 plants, but the company overview on page X mentions a total of 7 plants."]
-*   **Reporting Frameworks Mentioned:** [List any specific reporting frameworks] (Page #)
+*   **Validation Notes:** [**Mandatory field.** Explain the reasoning for your classification. Include revenue figures with page references if used.]
+*   **Reporting Frameworks Mentioned:** [List ALL specific reporting frameworks found anywhere in the document] (Page #)
 *   **GHG Organizational Approach (if Scope 1 or 2 disclosed):** [Financial Control / Equity Share / Operational Control / Other Boundary Criteria Disclosed / No Approach Disclosed] (Page #)
 *   **GHG Assurance Coverage (If Available):** [Extract assurance/verification coverage only for GHG-related data; include boundary/scope text exactly as stated] (Page #)
 *   **GHG Assurance Standard (If Available):** [Extract only the named assurance standard used for GHG (e.g., ISAE 3000, ISO 14064-3) exactly as stated] (Page #)
 *   **GHG Assurance Level (If Available):** [Limited / Reasonable / Other] (Page #)
 *   **Disclosure Revenue % Coverage:** [Value % or state "Disclosed" / "Calculated" / "Not disclosed - unable to calculate"] (Page #)
-*   **Restatement Information (If Available):** [Extract any statements/information about restatements of previously reported metrics, including reasons and page reference, or write 'Not Found'] (Page #)
+*   **Restatement Information (If Available):** [Extract any statements/information about restatements of previously reported environmental or financial metrics, including reasons and page reference, or write 'Not Found'] (Page #)
 *   **GHG Assurance Covered KPIs (If Available):** [List the specific GHG KPIs/metrics explicitly covered under the assurance/verification standard, or state 'Not Found'] (Page #)
 
 ---
@@ -94,7 +94,7 @@ First, identify the document and the specific scope for its **ESG and Environmen
     *   **1. For Quantitative Breakdowns:** If the report provides a table with **numerical values** for each item (e.g., each gas or each Scope 3 category), you MUST create a **new row for each individual item**. Use the format `GHG Gas: [Gas Name]` or `Scope 3 Category: [Category Name]` in the Metric column.
     *   **2. For Qualitative-Only Mentions:** If the report only lists the items **without providing individual numbers** (e.g., in a list, text, or diagram), you must capture this concisely in a **single row**. In the `Value` column, list all mentioned items as a comma-separated list (e.g., `CO2, CH4, N2O...`). Set the `Unit` to `N/A`.
 *   **Refrigerants:** If the report only says "refrigerants" with no gas type, or lists a blend without individual constituents, **do not extract quantitative values** — flag as "Vague refrigerant disclosure — constituents not specified" in the Validation Notes.
-*   **GHG Gases Included Rule:** Only extract gases that are EXPLICITLY listed in the document as included in the disclosure. Do NOT derive or infer the list of gases based on framework/protocol references (for example, if the report mentions 'GHG Protocol', do not automatically list the 7 Kyoto gases unless they are explicitly listed in the text or tables).
+*   **GHG Gases Included Rule:** Only extract gases that are EXPLICITLY listed in the document as included in the disclosure. Do NOT derive or infer the list of gases based on framework/protocol references (for example, if the report mentions 'GHG Protocol', do not automatically list the 7 Kyoto gases unless they are explicitly listed in the text or tables). CRITICAL: Preserve ALL conditional qualifiers EXACTLY as they appear in the document — phrases like "(if available)", "(if any)", "(where applicable)", "(as applicable)", "(if emitted)" carry important uncertainty information and MUST NOT be stripped. Copy them verbatim.
 
 ---
 

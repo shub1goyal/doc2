@@ -100,16 +100,16 @@ PM is different from PM 2.5 and PM 10.
 *   Company Name: [Identify the company name] (Page #)
 *   Document Type: [Identify the report type] (Page #)
 *   Time Period Covered: [State the full time period] (Page #)
-*   Boundary Description: [Extract the verbatim description] (Page #)
+*   Boundary Description: [Extract the MOST SPECIFIC operational boundary statement available. Prefer the BRSR section boundary or the assurance statement boundary over the general introduction. If multiple boundary statements exist in different sections, list all of them in order from most specific to least specific, each with its page number.] (Page #)
 *   Boundary Completeness Classification: [Classify as 'Consolidated (within reporting boundary)', 'Partial', or 'Unclear']
-*   Validation Notes: [Mandatory field. Explain the reasoning for your classification.]
-*   Reporting Frameworks Mentioned: [List any specific reporting frameworks] (Page #)
+*   Validation Notes: [Mandatory field. Explain the reasoning for your classification. Include revenue figures with page references if used.]
+*   Reporting Frameworks Mentioned: [List all specific reporting frameworks found anywhere in the document] (Page #)
 *   GHG Organizational Approach (if Scope 1 or 2 disclosed): [Financial Control / Equity Share / Operational Control / Other Boundary Criteria Disclosed / No Approach Disclosed] (Page #)
 *   GHG Assurance Coverage (If Available): [Extract assurance/verification coverage only for GHG-related data; include boundary/scope text exactly as stated] (Page #)
 *   GHG Assurance Standard (If Available): [Extract only the named assurance standard used for GHG (e.g., ISAE 3000, ISO 14064-3) exactly as stated] (Page #)
 *   GHG Assurance Level (If Available): [Limited / Reasonable / Other] (Page #)
 *   Disclosure Revenue % Coverage: [Value % or state "Disclosed" / "Calculated" / "Not disclosed - unable to calculate"] (Page #)
-*   **Restatement Information (If Available):** [Extract any statements/information about restatements of previously reported metrics, including reasons and page reference, or write 'Not Found'] (Page #)
+*   **Restatement Information (If Available):** [Extract any statements/information about restatements of previously reported environmental or financial metrics, including reasons and page reference, or write 'Not Found'] (Page #)
 *   **GHG Assurance Covered KPIs (If Available):** [List the specific GHG KPIs/metrics explicitly covered under the assurance/verification standard, or state 'Not Found'] (Page #)
 
 ---
@@ -142,7 +142,7 @@ Baseline GHG metrics to search and output as rows (minimum required):
 *   **GHG Total (Scope 1 & 2) Rule:** Only populate 'GHG Total Emissions (Scopes 1 & 2)' if explicitly pre-calculated in the report. Do not add Scopes 1 and 2 yourself.
 *   **Carbon Emissions vs CO2e Rule:** **"Carbon emission(s)" without "equivalent" or "e"** = **CO2** (not CO2e) for FY 2023+.
 *   **Refrigerants:** If the report only says "refrigerants" with no gas type, or lists a blend without individual constituents, **do not extract quantitative values** — flag as "Vague refrigerant disclosure — constituents not specified" in the Validation Notes.
-*   **GHG Gases Included Rule:** Only extract gases that are EXPLICITLY listed in the document as included in the disclosure. Do NOT derive or infer the list of gases based on framework/protocol references (for example, if the report mentions 'GHG Protocol', do not automatically list the 7 Kyoto gases unless they are explicitly listed in the text or tables).
+*   **GHG Gases Included Rule:** Only extract gases that are EXPLICITLY listed in the document as included in the disclosure. Do NOT derive or infer the list of gases based on framework/protocol references (for example, if the report mentions 'GHG Protocol', do not automatically list the 7 Kyoto gases unless they are explicitly listed in the text or tables). CRITICAL: Preserve ALL conditional qualifiers EXACTLY as they appear in the document — phrases like "(if available)", "(if any)", "(where applicable)", "(as applicable)", "(if emitted)" carry important uncertainty information and MUST NOT be stripped. Copy them verbatim. If the document says "NF3 (if available)", output "NF3 (if available)" — do not simplify to just "NF3".
 
 ---
 

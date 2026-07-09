@@ -325,6 +325,27 @@ Guidelines for extraction:
 
 ---
 
+**Task 4B: YoY Variance Analysis (≥20% Change)**
+
+**Task 4B Objective (Why this section exists):**
+Analyze year-over-year (YoY) variances to identify and explain significant changes (≥20%) for the environmental KPIs extracted in Tasks 2A, 2B, and 2C, and the Consolidated Revenue extracted in Task 3.
+
+**YoY Variance Rules:**
+*   **20% THRESHOLD:** Calculate the YoY change percentage for each metric from Tasks 2A, 2B, 2C, and the Consolidated Revenue in Task 3. Only include the metric if the absolute YoY change is ≥20%. Calculate YoY change as: `((Current Year Value - Prior Year Value) / Prior Year Value) * 100`.
+    - If prior year is zero and current year has a non-zero value, flag as "New Disclosure — no prior year baseline".
+    - If current year is zero and prior year was non-zero, flag as "Discontinued / Zero in current year".
+*   **LATEST YOY ONLY:** Compare only the current reporting year against the immediately preceding year.
+*   **NO INTENSITY METRICS:** Do not include intensity or normalized metrics.
+*   **REVENUE VARIANCE — CONSOLIDATED ONLY:** Extract variance reasons only for Consolidated Revenue. Do NOT run variance or extract explanations for segment or product revenues.
+*   **EXHAUSTIVE EXPLANATION SEARCH:** For each flagged metric, search the entire document for qualitative explanations (e.g. in MD&A, Directors' Report, Segment-wise discussion, CEO letters, footnotes, etc.). If no explanation is found, write "No explanation found in document".
+*   **SOURCE TRACING:** Include the specific PDF page citation for the values and explanations.
+
+**Variance Analysis Output:**
+Use a markdown table with this exact structure:
+| Metric | Current Year Value | Prior Year Value | YoY Change % | Variance Explanation | Page Source (PDF#) |
+
+---
+
 **Task 5: Final Quality Control (QC) Checklist**
 
 (Internal check, not for display in output)
@@ -340,4 +361,6 @@ Guidelines for extraction:
 *   QC Scope Restriction: Focus ONLY on the environmental and revenue KPIs of Tasks 1, 2, and 3. Do NOT audit or flag any out-of-scope metrics (such as borrowings, investments, assets, liabilities, profits/PAT, social/governance metrics like diversity, training, safety/LTIFR, or audit disclaimers from the financial auditor's report) as missing or corrections. Specifically, do NOT check, flag, or audit out-of-scope items like parental leave, LTIFR, fatalities, board composition, data breaches, political donations, surplus/deficit, sell currency, inter-corporate deposits, or statutory dues.
 *   Immateriality Completeness Check: Were immateriality detail rows created for every metric where the report declares a KPI, scope, or resource as immaterial, non-material, not relevant, not applicable, negligible, nil, or null? Check footnotes, methodology sections, and scope descriptions.
 *   Restatement Completeness Check: Were `[Metric Name] - Restatement Details` rows created for every metric in Tasks 2/3 where the document indicates prior values have been restated, corrected, or recalculated?
+*   Variance Completeness Check: Did Task 4B correctly analyze all environmental KPIs and consolidated revenue that have ≥20% YoY variance, and retrieve qualitative explanations?
+
 

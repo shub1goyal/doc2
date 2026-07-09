@@ -2424,15 +2424,9 @@ function formatVarianceTask1ToMarkdown(data) {
 function getTaskSchemaAndFormatter(taskName) {
     const name = taskName.toLowerCase();
 
-    // Route to variance-specific schemas if Variance Analysis preset is active
-    if (activePrefix) {
-        const active = promptPrefixes.find(p => p.id === activePrefix);
-        if (active && active.name.toLowerCase().includes("variance")) {
-            if (name.includes("task 1")) {
-                return { schema: VarianceTask1Schema, formatter: formatVarianceTask1ToMarkdown };
-            }
-            return { schema: null, formatter: null };
-        }
+    // If the task name contains "variance", it outputs a markdown table (no JSON schema required)
+    if (name.includes("variance")) {
+        return { schema: null, formatter: null };
     }
 
     if (name.includes("task 1") || name.includes("document identification") || name.includes("reporting scope")) {

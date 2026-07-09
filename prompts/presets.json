@@ -17,6 +17,24 @@
       "name": "ESG 2023",
       "file": "esg_2023.txt",
       "description": "Analyze all ESG metrics in documents for 2023"
+    },
+    {
+      "id": "variance-1",
+      "name": "Variance 2025",
+      "file": "variance_2025.txt",
+      "description": "YoY variance analysis (≥20% threshold) for 2025 environmental and revenue KPIs"
+    },
+    {
+      "id": "variance-2",
+      "name": "Variance 2024",
+      "file": "variance_2024.txt",
+      "description": "YoY variance analysis (≥20% threshold) for 2024 environmental and revenue KPIs"
+    },
+    {
+      "id": "variance-3",
+      "name": "Variance 2023",
+      "file": "variance_2023.txt",
+      "description": "YoY variance analysis (≥20% threshold) for 2023 environmental and revenue KPIs"
     }
   ]
 }

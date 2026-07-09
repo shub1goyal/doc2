@@ -1448,9 +1448,32 @@ async function handleSendMessage(event) {
                 break; // Success!
             } catch (error) {
                 lastError = error;
-                if (API_KEYS.length > 1) {
+                const errMsg = (error.message || "").toLowerCase();
+                const isKeyError = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403");
+                const isServiceError = errMsg.includes("503") || errMsg.includes("500") || errMsg.includes("504") || errMsg.includes("overloaded") || errMsg.includes("overload") || errMsg.includes("demand") || errMsg.includes("unavailable") || errMsg.includes("deadline") || errMsg.includes("timeout") || errMsg.includes("internal error");
+
+                if (isServiceError) {
                     attempt++;
-                    console.warn(`Chat failed. Rotating key and retrying immediately... Error:`, error);
+                    if (attempt >= maxAttempts) throw error;
+
+                    console.warn(`Service overloaded/demand error (503/500) during chat. Waiting for ${waitDelay / 1000}s before retry...`);
+                    isLoading = true;
+                    loadingMessage = `Model is experiencing high demand. Retrying in ${waitDelay / 1000}s...`;
+                    render();
+
+                    await new Promise(resolve => setTimeout(resolve, waitDelay));
+                    loadingMessage = 'Analyst AI is typing...';
+                    render();
+                    waitDelay *= 1.5;
+
+                    if (API_KEYS.length > 1) {
+                        rotateAPIKey();
+                        chatSession = null;
+                    }
+                    continue;
+                } else if (API_KEYS.length > 1) {
+                    attempt++;
+                    console.warn(`Chat failed due to key error. Rotating key and retrying immediately... Error:`, error);
                     rotateAPIKey();
                     chatSession = null; // Re-create session with the new key in next iteration
                     continue;
@@ -1458,9 +1481,9 @@ async function handleSendMessage(event) {
                     attempt++;
                     if (attempt >= maxAttempts) throw error;
 
-                    console.warn(`Transient/rate limit/demand error encountered. Waiting for cooldown...`);
+                    console.warn(`Transient/rate limit error encountered. Waiting for cooldown...`);
                     isLoading = true;
-                    loadingMessage = `High demand/rate limit reached. Retrying in ${waitDelay / 1000}s...`;
+                    loadingMessage = `Rate limit reached. Retrying in ${waitDelay / 1000}s...`;
                     render();
                     await new Promise(resolve => setTimeout(resolve, waitDelay));
                     loadingMessage = 'Analyst AI is typing...';
@@ -2783,20 +2806,47 @@ async function runAllSequentialTasks() {
                         break; // Success! Break out of the retry loop
                     } catch (streamError) {
                         lastError = streamError;
-                        if (API_KEYS.length > 1) {
+                        const errMsg = (streamError.message || "").toLowerCase();
+                        const isKeyError = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403");
+                        const isServiceError = errMsg.includes("503") || errMsg.includes("500") || errMsg.includes("504") || errMsg.includes("overloaded") || errMsg.includes("overload") || errMsg.includes("demand") || errMsg.includes("unavailable") || errMsg.includes("deadline") || errMsg.includes("timeout") || errMsg.includes("internal error");
+
+                        if (isServiceError) {
                             attempt++;
-                            console.warn(`Task ${task.name} failed. Rotating key and retrying immediately... Error:`, streamError);
+                            if (attempt >= maxAttempts) throw streamError;
+
+                            console.warn(`Task ${task.name} failed with service overloaded/demand error (503/500). Waiting for ${waitDelay / 1000}s...`);
+
+                            // Update loading indicator message to notify the user
+                            isLoading = true;
+                            loadingMessage = `Model is overloaded. Retrying task in ${waitDelay / 1000}s...`;
+                            render();
+
+                            await new Promise(resolve => setTimeout(resolve, waitDelay));
+
+                            // Reset loading status back to normal after cooldown
+                            loadingMessage = `Running Task ${i + 1}/${seqTasks.length}: ${task.name}...`;
+                            render();
+
+                            waitDelay *= 1.5; // Exponential increase
+                            
+                            if (API_KEYS.length > 1) {
+                                rotateAPIKey();
+                            }
+                            continue;
+                        } else if (API_KEYS.length > 1) {
+                            attempt++;
+                            console.warn(`Task ${task.name} failed due to key error. Rotating key and retrying immediately... Error:`, streamError);
                             rotateAPIKey();
                             continue;
                         } else if (isTransientOrRetryableError(streamError)) {
                             attempt++;
                             if (attempt >= maxAttempts) throw streamError;
 
-                            console.warn(`Task ${task.name} failed with transient/demand error. Retrying in ${waitDelay / 1000}s...`);
+                            console.warn(`Task ${task.name} failed with transient error. Retrying in ${waitDelay / 1000}s...`);
 
                             // Update loading indicator message to notify the user
                             isLoading = true;
-                            loadingMessage = `High demand/rate limit reached. Retrying task in ${waitDelay / 1000}s...`;
+                            loadingMessage = `Rate limit reached. Retrying task in ${waitDelay / 1000}s...`;
                             render();
 
                             await new Promise(resolve => setTimeout(resolve, waitDelay));

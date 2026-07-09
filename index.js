@@ -1276,9 +1276,10 @@ async function handleSendMessage(event) {
         }
 
         // Add user message to chat UI
+        const userMsgId = Date.now();
         if (userDisplayMessageText) {
             messages.push({
-                id: Date.now(),
+                id: userMsgId,
                 role: 'user',
                 text: userDisplayMessageText
             });
@@ -1305,6 +1306,7 @@ async function handleSendMessage(event) {
         let attempt = 0;
         const maxAttempts = API_KEYS.length > 1 ? API_KEYS.length : 3;
         let waitDelay = 7000;
+        let lastError = null;
 
         while (attempt < maxAttempts) {
             try {
@@ -1326,19 +1328,28 @@ async function handleSendMessage(event) {
                 }
 
                 // Add files if present (resolving/uploading using the current active key)
+                const resolvedFiles = [];
                 if (uploadedFiles.length > 0) {
                     updateProgressBar(0, "Preparing files...");
                     for (let i = 0; i < uploadedFiles.length; i++) {
                         const file = uploadedFiles[i];
                         const meta = await getOrUploadFile(file);
+                        const filePart = {
+                            mimeType: meta.mimeType,
+                            fileUri: meta.uri
+                        };
                         contentParts.push({
-                            fileData: {
-                                mimeType: meta.mimeType,
-                                fileUri: meta.uri
-                            }
+                            fileData: filePart
                         });
+                        resolvedFiles.push(filePart);
                     }
                     hideProgressBar();
+
+                    // Store resolved file URIs in the user's message object in history so they persist
+                    const userMsgIndex = messages.findIndex(msg => msg.id === userMsgId);
+                    if (userMsgIndex !== -1) {
+                        messages[userMsgIndex].files = resolvedFiles;
+                    }
                 }
 
                 if (!chatSession) {
@@ -1367,10 +1378,24 @@ async function handleSendMessage(event) {
                     if (messages.length > 2) {
                         for (let idx = 1; idx < messages.length - 2; idx++) {
                             const msg = messages[idx];
-                            if (msg.text && (msg.role === 'user' || msg.role === 'model')) {
+                            if (msg.role === 'user' || msg.role === 'model') {
+                                const parts = [];
+                                if (msg.text) {
+                                    parts.push({ text: msg.text });
+                                }
+                                if (msg.files && msg.files.length > 0) {
+                                    msg.files.forEach(f => {
+                                        parts.push({
+                                            fileData: {
+                                                mimeType: f.mimeType,
+                                                fileUri: f.fileUri
+                                            }
+                                        });
+                                    });
+                                }
                                 history.push({
                                     role: msg.role === 'model' ? 'model' : 'user',
-                                    parts: [{ text: msg.text }]
+                                    parts: parts
                                 });
                             }
                         }
@@ -1422,6 +1447,7 @@ async function handleSendMessage(event) {
                 result = await chatSession.sendMessageStream(contentParts);
                 break; // Success!
             } catch (error) {
+                lastError = error;
                 if (API_KEYS.length > 1) {
                     attempt++;
                     console.warn(`Chat failed. Rotating key and retrying immediately... Error:`, error);
@@ -1444,6 +1470,10 @@ async function handleSendMessage(event) {
                 }
                 throw error;
             }
+        }
+
+        if (!result) {
+            throw lastError || new Error("Failed to send message after all attempts.");
         }
 
         // Process the streamed response
@@ -2516,21 +2546,19 @@ async function runAllSequentialTasks() {
     chatSession = null;
 
     try {
-        // File uploading is now done dynamically inside each task retry loop to handle key-scoped files on rotation
-
-        // Retrieve other settings
+        let prevOutput = '';
         const globalCtx = seqGlobalContext || '';
         const passPrev = true;
         const stopOnError = true;
-        let prevOutput = '';
 
         const selectedModel = modelSelect ? modelSelect.value : MODEL_NAME;
         const model = genAI.getGenerativeModel({ model: selectedModel });
 
         // Add a single consolidated user query for the entire run
         const userText = `**[Sequential Run] Starting analysis using ${seqTasks.length} tasks...**`;
+        const userMsgId = Date.now();
         messages.push({
-            id: Date.now(),
+            id: userMsgId,
             role: 'user',
             text: userText
         });
@@ -2589,24 +2617,26 @@ async function runAllSequentialTasks() {
                     }
                 }
 
+                // Add instruction to enforce JSON schema if present
                 if (schema) {
                     taskPrompt += `\n\nCRITICAL: You MUST respond with a JSON object that strictly adheres to the requested JSON schema structure. Do not output markdown tables, HTML, or conversational text. Output ONLY the raw JSON matching the schema. All fields should be fully populated based on the uploaded documents.`;
                 }
 
-                // Stream response with retries on 429/403/permission
-                const activeModelLowerTask = selectedModel.toLowerCase();
+                // Determine active model name and configure thinking budget dynamically
+                const activeModelLower = selectedModel.toLowerCase();
                 const thinkingConfig = {};
-                if (activeModelLowerTask.includes("gemini-2.5")) {
+                if (activeModelLower.includes("gemini-2.5")) {
                     thinkingConfig.thinkingBudget = -1; // Max/dynamic thinking for 2.5
-                } else if (activeModelLowerTask.includes("gemini-3")) {
+                } else if (activeModelLower.includes("gemini-3")) {
                     thinkingConfig.thinkingLevel = "high"; // Max thinking level for 3/3.5
                 } else {
                     thinkingConfig.thinkingBudget = -1; // Fallback
                 }
 
+                // Set generation configuration parameters
                 const genConfig = {
-                    temperature: schema ? 0.25 : 0.5,
-                    maxOutputTokens: 65536,
+                    temperature: schema ? 0.1 : 0.4,
+                    maxOutputTokens: 64000,
                     thinkingConfig: thinkingConfig
                 };
 
@@ -2620,6 +2650,7 @@ async function runAllSequentialTasks() {
                 let attemptTaskInputTokens = 0;
                 const maxAttempts = API_KEYS.length > 1 ? API_KEYS.length : 3;
                 let waitDelay = 7000;
+                let lastError = null;
 
                 while (attempt < maxAttempts) {
                     try {
@@ -2628,19 +2659,28 @@ async function runAllSequentialTasks() {
 
                         // Build parts array dynamically for the current active key
                         const parts = [{ text: taskPrompt }];
+                        const resolvedFiles = [];
                         if (uploadedFiles.length > 0) {
                             updateProgressBar(0, "Preparing files...");
                             for (let fIdx = 0; fIdx < uploadedFiles.length; fIdx++) {
                                 const file = uploadedFiles[fIdx];
                                 const meta = await getOrUploadFile(file);
+                                const filePart = {
+                                    mimeType: meta.mimeType,
+                                    fileUri: meta.uri
+                                };
                                 parts.push({
-                                    fileData: {
-                                        mimeType: meta.mimeType,
-                                        fileUri: meta.uri
-                                    }
+                                    fileData: filePart
                                 });
+                                resolvedFiles.push(filePart);
                             }
                             hideProgressBar();
+
+                            // Store resolved file URIs in the user's message object in history so they persist
+                            const userMsgIndex = messages.findIndex(msg => msg.id === userMsgId);
+                            if (userMsgIndex !== -1) {
+                                messages[userMsgIndex].files = resolvedFiles;
+                            }
                         }
 
                         // Build contents array including prior chat history (before the current sequential run)
@@ -2650,15 +2690,46 @@ async function runAllSequentialTasks() {
                         if (messages.length > 2) {
                             for (let idx = 0; idx < messages.length - 2; idx++) {
                                 const msg = messages[idx];
-                                if (msg.text && (msg.role === 'user' || msg.role === 'model')) {
+                                if (msg.role === 'user' || msg.role === 'model') {
                                     const role = msg.role === 'model' ? 'model' : 'user';
+                                    const msgParts = [];
+                                    if (msg.text) {
+                                        msgParts.push({ text: msg.text });
+                                    }
+                                    if (msg.files && msg.files.length > 0) {
+                                        msg.files.forEach(f => {
+                                            msgParts.push({
+                                                fileData: {
+                                                    mimeType: f.mimeType,
+                                                    fileUri: f.fileUri
+                                                }
+                                            });
+                                        });
+                                    }
 
                                     if (role === lastAddedRole) {
-                                        contents[contents.length - 1].parts[0].text += `\n\n${msg.text}`;
+                                        if (msg.text) {
+                                            const lastPart = contents[contents.length - 1].parts[0];
+                                            if (lastPart && typeof lastPart.text === 'string') {
+                                                lastPart.text += `\n\n${msg.text}`;
+                                            } else {
+                                                contents[contents.length - 1].parts.push({ text: msg.text });
+                                            }
+                                        }
+                                        if (msg.files && msg.files.length > 0) {
+                                            msg.files.forEach(f => {
+                                                contents[contents.length - 1].parts.push({
+                                                    fileData: {
+                                                        mimeType: f.mimeType,
+                                                        fileUri: f.fileUri
+                                                    }
+                                                });
+                                            });
+                                        }
                                     } else {
                                         contents.push({
                                             role: role,
-                                            parts: [{ text: msg.text }]
+                                            parts: msgParts
                                         });
                                         lastAddedRole = role;
                                     }
@@ -2711,6 +2782,7 @@ async function runAllSequentialTasks() {
                         attemptTaskInputTokens = taskInputTokens;
                         break; // Success! Break out of the retry loop
                     } catch (streamError) {
+                        lastError = streamError;
                         if (API_KEYS.length > 1) {
                             attempt++;
                             console.warn(`Task ${task.name} failed. Rotating key and retrying immediately... Error:`, streamError);
@@ -2739,6 +2811,10 @@ async function runAllSequentialTasks() {
                             throw streamError;
                         }
                     }
+                }
+
+                if (!result) {
+                    throw lastError || new Error(`Task ${task.name} failed after all attempts.`);
                 }
 
                 let responseText = '';

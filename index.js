@@ -177,6 +177,7 @@ let messages = []; // Array of message objects {id, role, text}
 let isLoading = false;
 let loadingMessage = 'Analyst AI is typing...'; // Dynamic loading message
 let uploadedFiles = []; // Array to store multiple files
+let cachedFileObjects = []; // To preserve original File objects across key rotations even after they are cleared from UI
 let chatSession = null; // To hold the Gemini chat session
 let promptPrefixes = []; // Initialize as empty array
 let activePrefix = ''; // Removed localStorage for activePrefix
@@ -948,6 +949,7 @@ function resetSession() {
 
     // Clear any uploaded files
     removeAllFiles();
+    cachedFileObjects = []; // Reset preserved session files cache
 
     // Reinitialize with welcome message
     initializeChat();
@@ -1009,6 +1011,7 @@ function processFileUpload(file) {
         const existingFileIndex = uploadedFiles.findIndex(f => f.name === file.name && f.size === file.size);
         if (existingFileIndex === -1) {
             uploadedFiles.push(file);
+            cachedFileObjects.push(file);
         }
         render();
     } else {
@@ -1050,7 +1053,12 @@ function removeAllFiles() {
  */
 function removeFile(index) {
     if (index >= 0 && index < uploadedFiles.length) {
+        const file = uploadedFiles[index];
         uploadedFiles.splice(index, 1);
+        const cachedIndex = cachedFileObjects.findIndex(cf => cf.name === file.name && cf.size === file.size);
+        if (cachedIndex !== -1) {
+            cachedFileObjects.splice(cachedIndex, 1);
+        }
         if (uploadedFiles.length === 0 && fileInput) {
             fileInput.value = '';
         }
@@ -1335,6 +1343,7 @@ async function handleSendMessage(event) {
                         const file = uploadedFiles[i];
                         const meta = await getOrUploadFile(file);
                         const filePart = {
+                            name: file.name,
                             mimeType: meta.mimeType,
                             fileUri: meta.uri
                         };
@@ -1384,14 +1393,27 @@ async function handleSendMessage(event) {
                                     parts.push({ text: msg.text });
                                 }
                                 if (msg.files && msg.files.length > 0) {
-                                    msg.files.forEach(f => {
-                                        parts.push({
-                                            fileData: {
-                                                mimeType: f.mimeType,
-                                                fileUri: f.fileUri
-                                            }
-                                        });
-                                    });
+                                    for (let fIdx = 0; fIdx < msg.files.length; fIdx++) {
+                                        const f = msg.files[fIdx];
+                                        // Dynamically re-resolve the file for the active API key using original preserved File object
+                                        const originalFile = cachedFileObjects.find(cf => cf.name === f.name);
+                                        if (originalFile) {
+                                            const meta = await getOrUploadFile(originalFile);
+                                            parts.push({
+                                                fileData: {
+                                                    mimeType: meta.mimeType,
+                                                    fileUri: meta.uri
+                                                }
+                                            });
+                                        } else {
+                                            parts.push({
+                                                fileData: {
+                                                    mimeType: f.mimeType,
+                                                    fileUri: f.fileUri
+                                                }
+                                            });
+                                        }
+                                    }
                                 }
                                 history.push({
                                     role: msg.role === 'model' ? 'model' : 'user',
@@ -2689,6 +2711,7 @@ async function runAllSequentialTasks() {
                                 const file = uploadedFiles[fIdx];
                                 const meta = await getOrUploadFile(file);
                                 const filePart = {
+                                    name: file.name,
                                     mimeType: meta.mimeType,
                                     fileUri: meta.uri
                                 };
@@ -2720,14 +2743,26 @@ async function runAllSequentialTasks() {
                                         msgParts.push({ text: msg.text });
                                     }
                                     if (msg.files && msg.files.length > 0) {
-                                        msg.files.forEach(f => {
-                                            msgParts.push({
-                                                fileData: {
-                                                    mimeType: f.mimeType,
-                                                    fileUri: f.fileUri
-                                                }
-                                            });
-                                        });
+                                        for (let fIdx = 0; fIdx < msg.files.length; fIdx++) {
+                                            const f = msg.files[fIdx];
+                                            const originalFile = cachedFileObjects.find(cf => cf.name === f.name);
+                                            if (originalFile) {
+                                                const meta = await getOrUploadFile(originalFile);
+                                                msgParts.push({
+                                                    fileData: {
+                                                        mimeType: meta.mimeType,
+                                                        fileUri: meta.uri
+                                                    }
+                                                });
+                                            } else {
+                                                msgParts.push({
+                                                    fileData: {
+                                                        mimeType: f.mimeType,
+                                                        fileUri: f.fileUri
+                                                    }
+                                                });
+                                            }
+                                        }
                                     }
 
                                     if (role === lastAddedRole) {
@@ -2740,14 +2775,26 @@ async function runAllSequentialTasks() {
                                             }
                                         }
                                         if (msg.files && msg.files.length > 0) {
-                                            msg.files.forEach(f => {
-                                                contents[contents.length - 1].parts.push({
-                                                    fileData: {
-                                                        mimeType: f.mimeType,
-                                                        fileUri: f.fileUri
-                                                    }
-                                                });
-                                            });
+                                            for (let fIdx = 0; fIdx < msg.files.length; fIdx++) {
+                                                const f = msg.files[fIdx];
+                                                const originalFile = cachedFileObjects.find(cf => cf.name === f.name);
+                                                if (originalFile) {
+                                                    const meta = await getOrUploadFile(originalFile);
+                                                    contents[contents.length - 1].parts.push({
+                                                        fileData: {
+                                                            mimeType: meta.mimeType,
+                                                            fileUri: meta.uri
+                                                        }
+                                                    });
+                                                } else {
+                                                    contents[contents.length - 1].parts.push({
+                                                        fileData: {
+                                                            mimeType: f.mimeType,
+                                                            fileUri: f.fileUri
+                                                        }
+                                                    });
+                                                }
+                                            }
                                         }
                                     } else {
                                         contents.push({

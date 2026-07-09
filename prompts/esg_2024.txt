@@ -342,7 +342,16 @@ Analyze year-over-year (YoY) variances to identify and explain significant chang
 *   **SOURCE TRACING:** Include the specific PDF page citation for the values and explanations.
 
 **Variance Analysis Output:**
-Output the variance details matching the JSON schema. For each KPI, provide: KPI Name, Target Year Value, Target Year Unit, Previous Year Value, Previous Year Unit, Variance Percent, Direction ("Increase", "Decrease", or "N/A"), Reason/Explanation, and Page Source.
+Use a table with these columns:
+1. KPI Name
+2. Target Year Value
+3. Target Year Unit
+4. Previous Year Value
+5. Previous Year Unit
+6. Variance Percent
+7. Direction (Increase / Decrease / N/A)
+8. Reason / Explanation (Verbatim or near-verbatim reason explaining the change if variance is >20%)
+9. Page Source (PDF Page source where the values and reasons are mentioned)
 
 ---
 

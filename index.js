@@ -1961,16 +1961,20 @@ const Task1Schema = {
             type: "STRING",
             description: "Value % or state 'Disclosed' / 'Calculated' / 'Not disclosed - unable to calculate' (Include PDF Page # where found, e.g., 'PDF page 12')."
         },
-        restatementInformation: {
+        materialityAssessment: {
             type: "STRING",
-            description: "Extract any statements/information about restatements of previously reported metrics, including reasons and page reference, or write 'Not Found'."
+            description: "Extract the company's materiality assessment approach (single/double materiality), list of material environmental topics identified, and methodology reference, or write 'Not Found'. (Include PDF Page #)"
+        },
+        ghgBaseYear: {
+            type: "STRING",
+            description: "Extract the stated GHG emissions base year, any base year recalculation policy/trigger, and Science-Based Target base year if disclosed, or write 'Not Found'. (Include PDF Page #)"
         },
         ghgAssuranceCoveredKPIs: {
             type: "STRING",
             description: "List the specific GHG KPIs/metrics explicitly covered under the assurance/verification standard as stated in the report, or state 'Not Found'. (Include PDF Page # where found)"
         }
     },
-    required: ["companyName", "documentType", "timePeriodCovered", "boundaryDescription", "boundaryCompleteness", "validationNotes", "restatementInformation", "ghgAssuranceCoveredKPIs"]
+    required: ["companyName", "documentType", "timePeriodCovered", "boundaryDescription", "boundaryCompleteness", "validationNotes", "materialityAssessment", "ghgBaseYear", "ghgAssuranceCoveredKPIs"]
 };
 
 const Task2RowSchema = {
@@ -2209,7 +2213,8 @@ function formatTask1ToMarkdown(data) {
 *   **GHG Assurance Standard (If Available):** ${data.ghgAssuranceStandard || 'N/A'}
 *   **GHG Assurance Level (If Available):** ${data.ghgAssuranceLevel || 'N/A'}
 *   **Disclosure Revenue % Coverage:** ${data.disclosureRevenueCoverage || 'N/A'}
-*   **Restatement Information:** ${data.restatementInformation || 'N/A'}
+*   **Materiality Assessment:** ${data.materialityAssessment || 'N/A'}
+*   **GHG Base Year:** ${data.ghgBaseYear || 'N/A'}
 *   **GHG Assurance Covered KPIs:** ${data.ghgAssuranceCoveredKPIs || 'N/A'}`;
 }
 

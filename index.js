@@ -1348,7 +1348,10 @@ async function handleSendMessage(event) {
                             fileUri: meta.uri
                         };
                         contentParts.push({
-                            fileData: filePart
+                            fileData: {
+                                mimeType: filePart.mimeType,
+                                fileUri: filePart.fileUri
+                            }
                         });
                         resolvedFiles.push(filePart);
                     }
@@ -2716,7 +2719,10 @@ async function runAllSequentialTasks() {
                                     fileUri: meta.uri
                                 };
                                 parts.push({
-                                    fileData: filePart
+                                    fileData: {
+                                        mimeType: filePart.mimeType,
+                                        fileUri: filePart.fileUri
+                                    }
                                 });
                                 resolvedFiles.push(filePart);
                             }

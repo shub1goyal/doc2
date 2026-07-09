@@ -1376,12 +1376,23 @@ async function handleSendMessage(event) {
                         }
                     }
 
+                    const activeModelLower = selectedModel.toLowerCase();
+                    const thinkingConfig = {};
+                    if (activeModelLower.includes("gemini-2.5")) {
+                        thinkingConfig.thinkingBudget = -1; // Max/dynamic thinking for 2.5
+                    } else if (activeModelLower.includes("gemini-3")) {
+                        thinkingConfig.thinkingLevel = "high"; // Max thinking level for 3/3.5
+                    } else {
+                        thinkingConfig.thinkingBudget = -1; // Fallback
+                    }
+
                     chatSession = model.startChat({
                         history: history,
                         safetySettings,
                         generationConfig: {
                             temperature: 0.4,
-                            maxOutputTokens: 64000 // Increase limit to prevent truncation
+                            maxOutputTokens: 64000, // Increase limit to prevent truncation
+                            thinkingConfig: thinkingConfig
                         },
                         systemInstruction: SYSTEM_INSTRUCTION
                     });
@@ -2578,9 +2589,20 @@ async function runAllSequentialTasks() {
                 }
 
                 // Stream response with retries on 429/403/permission
+                const activeModelLowerTask = selectedModel.toLowerCase();
+                const thinkingConfig = {};
+                if (activeModelLowerTask.includes("gemini-2.5")) {
+                    thinkingConfig.thinkingBudget = -1; // Max/dynamic thinking for 2.5
+                } else if (activeModelLowerTask.includes("gemini-3")) {
+                    thinkingConfig.thinkingLevel = "high"; // Max thinking level for 3/3.5
+                } else {
+                    thinkingConfig.thinkingBudget = -1; // Fallback
+                }
+
                 const genConfig = {
                     temperature: schema ? 0.25 : 0.5,
-                    maxOutputTokens: 65536
+                    maxOutputTokens: 65536,
+                    thinkingConfig: thinkingConfig
                 };
 
                 if (schema) {

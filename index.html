@@ -551,6 +551,17 @@
 
 
 
+            <!-- Upload Progress (hidden by default, shown during File API upload) -->
+            <div id="upload-progress" class="hidden mb-2 p-2 bg-blue-50 border border-blue-200 rounded-md">
+                <div class="flex items-center justify-between mb-1">
+                    <span id="upload-progress-label" class="text-sm text-blue-800 truncate flex-1 mr-2">Uploading...</span>
+                    <span id="upload-progress-pct" class="text-sm font-semibold text-blue-700 flex-shrink-0">0%</span>
+                </div>
+                <div class="w-full bg-blue-200 rounded-full h-1.5">
+                    <div id="upload-progress-bar" class="bg-blue-500 h-1.5 rounded-full transition-all duration-200" style="width: 0%"></div>
+                </div>
+            </div>
+
             <!-- Input Form -->
             <form id="chat-form" class="flex items-center space-x-2">
                 <!-- Attach File Button -->

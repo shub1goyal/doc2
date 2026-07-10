@@ -318,7 +318,12 @@ const quickPromptDropdown = safeGetElement('quick-prompt-dropdown');
 const quickPromptList = safeGetElement('quick-prompt-list');
 const managePrefixesLink = safeGetElement('manage-prefixes-link');
 
-// (Progress bar elements removed — File API handles all file sizes natively, no chunking needed)
+// Upload Progress UI elements
+const uploadProgressEl = safeGetElement('upload-progress');
+const uploadProgressBar = safeGetElement('upload-progress-bar');
+const uploadProgressLabel = safeGetElement('upload-progress-label');
+const uploadProgressPct = safeGetElement('upload-progress-pct');
+
 
 // API Key Modal Elements (removed for build-injected environment keys)
 
@@ -1163,8 +1168,8 @@ async function uploadFileToGemini(file) {
 
         xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
-                const percentComplete = (event.loaded / event.total) * 100;
-                console.log(`Uploading ${displayName}: ${Math.round(percentComplete)}%`);
+                const pct = (event.loaded / event.total) * 100;
+                showUploadProgress(displayName, pct);
             }
         };
 
@@ -1202,6 +1207,12 @@ async function getOrUploadFile(file) {
     );
     if (!meta) {
         const fileMetadata = await uploadFileToGemini(file);
+        // Wait until the file is ACTIVE before caching — referencing a PROCESSING
+        // file URI in countTokens or generateContent causes a 400 "invalid argument".
+        if (fileMetadata.name) {
+            await waitForFileActive(fileMetadata.name, activeKey);
+        }
+        hideUploadProgress();
         meta = {
             name: file.name,
             size: file.size,
@@ -1214,7 +1225,48 @@ async function getOrUploadFile(file) {
     return meta;
 }
 
-// updateProgressBar / hideProgressBar removed — File API handles all sizes natively via resumable upload.
+/**
+ * Show upload progress bar in the UI.
+ */
+function showUploadProgress(filename, percent) {
+    if (uploadProgressEl) uploadProgressEl.classList.remove('hidden');
+    if (uploadProgressLabel) uploadProgressLabel.textContent = `Uploading: ${filename}`;
+    if (uploadProgressBar) uploadProgressBar.style.width = `${Math.round(percent)}%`;
+    if (uploadProgressPct) uploadProgressPct.textContent = `${Math.round(percent)}%`;
+}
+
+function hideUploadProgress() {
+    if (uploadProgressEl) uploadProgressEl.classList.add('hidden');
+    if (uploadProgressBar) uploadProgressBar.style.width = '0%';
+    if (uploadProgressPct) uploadProgressPct.textContent = '0%';
+}
+
+/**
+ * Poll the Gemini File API until the uploaded file reaches ACTIVE state.
+ * Files are sometimes still PROCESSING right after upload — referencing them
+ * before they are ACTIVE causes a 400 "invalid argument" from the API.
+ */
+async function waitForFileActive(fileName, apiKey, maxWaitMs = 60000) {
+    const start = Date.now();
+    while (Date.now() - start < maxWaitMs) {
+        try {
+            const resp = await fetch(
+                `https://generativelanguage.googleapis.com/v1beta/${fileName}?key=${apiKey}`
+            );
+            if (!resp.ok) return; // Can't check — proceed optimistically
+            const data = await resp.json();
+            if (data.state === 'ACTIVE') return;
+            if (data.state === 'FAILED') throw new Error(`File processing failed: ${fileName}`);
+            // Still PROCESSING — wait 2s and retry
+            await new Promise(r => setTimeout(r, 2000));
+        } catch (e) {
+            if (e.message && e.message.startsWith('File processing failed')) throw e;
+            return; // Network error — proceed optimistically
+        }
+    }
+    console.warn(`waitForFileActive timed out for ${fileName} — proceeding anyway`);
+}
+
 
 /**
  * Handle sending a message
@@ -1451,10 +1503,10 @@ async function handleSendMessage(event) {
 
                 // Count Input Tokens
                 try {
-                    // Include system instruction and file content for accurate count
                     const countResult = await model.countTokens({
-                        contents: [{ role: 'user', parts: contentParts }],
-                        systemInstruction: SYSTEM_INSTRUCTION
+                        contents: [{ role: 'user', parts: contentParts }]
+                        // Note: systemInstruction is intentionally omitted — the
+                        // countTokens endpoint rejects it with 400 "invalid argument".
                     });
 
                     const count = countResult.totalTokens;
@@ -2832,12 +2884,18 @@ async function runAllSequentialTasks() {
                             });
                         }
 
+                        // Sanitize: remove any content items with empty parts[] \u2014
+                        // these arise from loading-placeholder model messages that have no
+                        // text and no files. Passing them to the API causes a 400 "invalid argument".
+                        const safeContents = contents.filter(c => c.parts && c.parts.length > 0);
+
                         // Count input tokens and add to consolidated count
                         let taskInputTokens = 0;
                         try {
                             const countResult = await activeModel.countTokens({
-                                contents: contents,
-                                systemInstruction: SYSTEM_INSTRUCTION
+                                contents: safeContents
+                                // Note: systemInstruction intentionally omitted \u2014
+                                // countTokens rejects it with 400 "invalid argument".
                             });
                             taskInputTokens = countResult.totalTokens;
                             let modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
@@ -2849,7 +2907,7 @@ async function runAllSequentialTasks() {
                         }
 
                         result = await activeModel.generateContentStream({
-                            contents: contents,
+                            contents: safeContents,
                             systemInstruction: SYSTEM_INSTRUCTION,
                             generationConfig: genConfig
                         });

@@ -2884,10 +2884,23 @@ async function runAllSequentialTasks() {
                             });
                         }
 
-                        // Sanitize: remove any content items with empty parts[] \u2014
-                        // these arise from loading-placeholder model messages that have no
-                        // text and no files. Passing them to the API causes a 400 "invalid argument".
-                        const safeContents = contents.filter(c => c.parts && c.parts.length > 0);
+                        // Sanitize contents before sending to the API:
+                        // 1. Drop items with empty parts[] (loading placeholders with no text/files)
+                        // 2. Merge consecutive same-role messages \u2014 removing placeholders can leave
+                        //    two 'user' turns back-to-back, which Gemini rejects with 400.
+                        const safeContents = (() => {
+                            const filtered = contents.filter(c => c.parts && c.parts.length > 0);
+                            const merged = [];
+                            for (const item of filtered) {
+                                if (merged.length > 0 && merged[merged.length - 1].role === item.role) {
+                                    // Merge parts into the previous same-role entry
+                                    merged[merged.length - 1].parts.push(...item.parts);
+                                } else {
+                                    merged.push({ role: item.role, parts: [...item.parts] });
+                                }
+                            }
+                            return merged;
+                        })();
 
                         // Count input tokens and add to consolidated count
                         let taskInputTokens = 0;

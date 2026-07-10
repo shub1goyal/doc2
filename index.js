@@ -318,10 +318,7 @@ const quickPromptDropdown = safeGetElement('quick-prompt-dropdown');
 const quickPromptList = safeGetElement('quick-prompt-list');
 const managePrefixesLink = safeGetElement('manage-prefixes-link');
 
-// File Processing Progress Elements (Note: Currently placeholders for future chunked upload implementation)
-const fileProcessingProgressElement = safeGetElement('file-processing-progress');
-const progressBar = safeGetElement('progress-bar');
-const progressText = safeGetElement('progress-text');
+// (Progress bar elements removed — File API handles all file sizes natively, no chunking needed)
 
 // API Key Modal Elements (removed for build-injected environment keys)
 
@@ -1095,6 +1092,34 @@ function renderFileList() {
 }
 
 /**
+ * Resolve the correct MIME type for a file.
+ * On Windows, file.type is often empty for PDFs and other common formats.
+ * Falling back to 'application/octet-stream' causes a 400 from the Gemini API.
+ */
+function getFileMimeType(file) {
+    if (file.type && file.type !== 'application/octet-stream') {
+        return file.type;
+    }
+    const ext = file.name.substring(file.name.lastIndexOf('.')).toLowerCase();
+    const mimeMap = {
+        '.pdf':  'application/pdf',
+        '.docx': 'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+        '.doc':  'application/msword',
+        '.txt':  'text/plain',
+        '.html': 'text/html',
+        '.htm':  'text/html',
+        '.jpg':  'image/jpeg',
+        '.jpeg': 'image/jpeg',
+        '.png':  'image/png',
+        '.gif':  'image/gif',
+        '.bmp':  'image/bmp',
+        '.tiff': 'image/tiff',
+        '.tif':  'image/tiff',
+    };
+    return mimeMap[ext] || 'application/octet-stream';
+}
+
+/**
  * Upload a file to Gemini using the official File API (Resumable Upload)
  */
 async function uploadFileToGemini(file) {
@@ -1102,10 +1127,10 @@ async function uploadFileToGemini(file) {
     if (!activeKey) throw new Error("API Key is required for file upload");
 
     const fileSize = file.size;
-    const mimeType = file.type || 'application/octet-stream';
+    const mimeType = getFileMimeType(file);
     const displayName = file.name;
 
-    console.log(`Starting upload for ${displayName} (${fileSize} bytes)`);
+    console.log(`Starting upload for ${displayName} (${fileSize} bytes, type: ${mimeType})`);
 
     // Step 1: Initialize Resumable Upload Session
     const initResponse = await fetch(`https://generativelanguage.googleapis.com/upload/v1beta/files?key=${activeKey}`, {
@@ -1113,7 +1138,7 @@ async function uploadFileToGemini(file) {
         headers: {
             'X-Goog-Upload-Protocol': 'resumable',
             'X-Goog-Upload-Command': 'start',
-            'X-Goog-Upload-Header-Content-Length': fileSize,
+            'X-Goog-Upload-Header-Content-Length': String(fileSize), // must be a string
             'X-Goog-Upload-Header-Content-Type': mimeType,
             'Content-Type': 'application/json'
         },
@@ -1122,7 +1147,7 @@ async function uploadFileToGemini(file) {
 
     if (!initResponse.ok) {
         const errorText = await initResponse.text();
-        throw new Error(`Failed to initialize upload: ${errorText}`);
+        throw new Error(`Failed to initialize upload (${initResponse.status}): ${errorText}`);
     }
 
     const uploadUrl = initResponse.headers.get('X-Goog-Upload-URL');
@@ -1134,12 +1159,12 @@ async function uploadFileToGemini(file) {
         xhr.open('POST', uploadUrl, true);
         xhr.setRequestHeader('X-Goog-Upload-Offset', '0');
         xhr.setRequestHeader('X-Goog-Upload-Command', 'upload, finalize');
+        xhr.setRequestHeader('Content-Type', mimeType);
 
         xhr.upload.onprogress = (event) => {
             if (event.lengthComputable) {
                 const percentComplete = (event.loaded / event.total) * 100;
-                const isLarge = fileSize > 20 * 1024 * 1024; // 20MB threshold
-                updateProgressBar(percentComplete, `Uploading ${displayName}...`, isLarge);
+                console.log(`Uploading ${displayName}: ${Math.round(percentComplete)}%`);
             }
         };
 
@@ -1170,48 +1195,26 @@ async function uploadFileToGemini(file) {
 async function getOrUploadFile(file) {
     const activeKey = API_KEYS.length > 0 ? API_KEYS[currentKeyIndex] : '';
     if (!activeKey) throw new Error("API Key is required for file upload");
-    let meta = uploadedFileMetadata.find(m => m.name === file.name && m.apiKey === activeKey);
+    // Include file.size in cache key to avoid stale hits when re-uploading a file
+    // with the same name but different content (or after a session reset)
+    let meta = uploadedFileMetadata.find(
+        m => m.name === file.name && m.size === file.size && m.apiKey === activeKey
+    );
     if (!meta) {
         const fileMetadata = await uploadFileToGemini(file);
-        meta = { name: file.name, uri: fileMetadata.uri, mimeType: fileMetadata.mimeType, apiKey: activeKey };
+        meta = {
+            name: file.name,
+            size: file.size,
+            uri: fileMetadata.uri,
+            mimeType: fileMetadata.mimeType || getFileMimeType(file),
+            apiKey: activeKey
+        };
         uploadedFileMetadata.push(meta);
     }
     return meta;
 }
 
-function updateProgressBar(percent, message, isLargeFile = false) {
-    if (fileProcessingProgressElement) {
-        fileProcessingProgressElement.classList.remove('hidden');
-    }
-    if (progressBar) {
-        progressBar.style.width = `${percent}%`;
-    }
-    if (progressText) {
-        progressText.textContent = `${Math.round(percent)}%`;
-    }
-
-    // Update the info text based on whether it's a large file (>20MB)
-    const progressInfo = document.getElementById('progress-info');
-    if (progressInfo) {
-        if (isLargeFile) {
-            progressInfo.textContent = 'File is over 20MB and will be processed in chunks for optimal performance.';
-        } else {
-            progressInfo.textContent = message || 'Uploading file to Gemini API...';
-        }
-    }
-}
-
-function hideProgressBar() {
-    if (fileProcessingProgressElement) {
-        fileProcessingProgressElement.classList.add('hidden');
-    }
-    if (progressBar) {
-        progressBar.style.width = '0%';
-    }
-    if (progressText) {
-        progressText.textContent = '0%';
-    }
-}
+// updateProgressBar / hideProgressBar removed — File API handles all sizes natively via resumable upload.
 
 /**
  * Handle sending a message
@@ -1338,7 +1341,6 @@ async function handleSendMessage(event) {
                 // Add files if present (resolving/uploading using the current active key)
                 const resolvedFiles = [];
                 if (uploadedFiles.length > 0) {
-                    updateProgressBar(0, "Preparing files...");
                     for (let i = 0; i < uploadedFiles.length; i++) {
                         const file = uploadedFiles[i];
                         const meta = await getOrUploadFile(file);
@@ -1355,7 +1357,6 @@ async function handleSendMessage(event) {
                         });
                         resolvedFiles.push(filePart);
                     }
-                    hideProgressBar();
 
                     // Store resolved file URIs in the user's message object in history so they persist
                     const userMsgIndex = messages.findIndex(msg => msg.id === userMsgId);
@@ -2709,7 +2710,6 @@ async function runAllSequentialTasks() {
                         const parts = [{ text: taskPrompt }];
                         const resolvedFiles = [];
                         if (uploadedFiles.length > 0) {
-                            updateProgressBar(0, "Preparing files...");
                             for (let fIdx = 0; fIdx < uploadedFiles.length; fIdx++) {
                                 const file = uploadedFiles[fIdx];
                                 const meta = await getOrUploadFile(file);
@@ -2726,7 +2726,6 @@ async function runAllSequentialTasks() {
                                 });
                                 resolvedFiles.push(filePart);
                             }
-                            hideProgressBar();
 
                             // Store resolved file URIs in the user's message object in history so they persist
                             const userMsgIndex = messages.findIndex(msg => msg.id === userMsgId);

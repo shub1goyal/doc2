@@ -954,15 +954,13 @@ window.setActivePrefixById = setActivePrefixById;
  * Initialize the chat with a welcome message
  */
 function initializeChat() {
-    let welcomeMessage = `Hello! I'm Analyst AI specialized in document analysis. I can help you analyze documents, validate data consistency, and detect duplicate metrics across reports.
-
-Upload documents or ask me anything!`;
+    let welcomeMessage = `Hello! I'm Analyst AI. Upload documents, choose an ESG preset, and click Send to run extraction — or type a follow-up question.`;
 
     // Add warning if no build-injected keys are configured
     if (API_KEYS.length === 0) {
-        welcomeMessage += '\n\n⚠️ **Configuration Required**: No Gemini API keys are configured. Please ensure they are injected at build time via GitHub Secrets (`GEMINI_API_KEYS` as a comma-separated list).';
+        welcomeMessage += '\n\n⚠️ **No API keys configured.** Deploy with the `GEMINI_API_KEYS` GitHub secret, or inject keys for local testing.';
     } else {
-        welcomeMessage += `\n\n🔑 **${API_KEYS.length} Gemini API key(s)** loaded. Extraction runs **sequentially** (one task at a time) on the active API key; keys rotate on rate-limit/errors and after a successful full run when multiple keys are available.`;
+        welcomeMessage += `\n\n🔑 **${API_KEYS.length} API key(s)** ready.`;
     }
 
     messages = [
@@ -1664,7 +1662,7 @@ async function handleSendMessage(event) {
             const modelMessageIndex = messages.findIndex(msg => msg.id === responseId);
             if (modelMessageIndex !== -1) {
                 messages[modelMessageIndex].text =
-                    `*Extracting structured response...*\n\n\`\`\`json\n${responseText}\n\`\`\`${warningMessage}`;
+                    `*Working…*\n\n\`\`\`json\n${responseText}\n\`\`\`${warningMessage}`;
 
                 if (chunk.usageMetadata) {
                     messages[modelMessageIndex].tokenCounts = {
@@ -2800,7 +2798,7 @@ function formatMetricCoverageToMarkdown(coverage) {
     // Collapsible in UI; excluded from "copy full response"
     let md = `\n\n<!--EXCLUDE_FROM_COPY_START-->\n`;
     md += `<details class="metric-coverage-collapsible">\n`;
-    md += `<summary><strong>Metric Coverage Checklist</strong> <span class="text-gray-500 text-sm">(click to expand — not included when copying full response)</span></summary>\n\n`;
+    md += `<summary><strong>Metric Coverage Checklist</strong></summary>\n\n`;
     md += `| Metric | Status | Notes |\n`;
     md += `| --- | --- | --- |\n`;
     coverage.forEach(c => {
@@ -2916,7 +2914,7 @@ function formatTask3ToMarkdown(data) {
 
     // Prefer structured segments/products (qualitative only, breakdown items only)
     if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
-        md += `**Segment Information/Description** *(qualitative — breakdown segments only; no revenue)*\n\n`;
+        md += `**Segment Information/Description**\n\n`;
         data.segments.forEach(s => {
             md += `*   **${s.name || 'N/A'}** — ${s.description || 'N/A'} *(${s.pageSource || 'N/A'})*\n`;
         });
@@ -2926,7 +2924,7 @@ function formatTask3ToMarkdown(data) {
     }
 
     if (data.products && Array.isArray(data.products) && data.products.length > 0) {
-        md += `**Product/Service Description** *(qualitative — breakdown products only; no revenue)*\n\n`;
+        md += `**Product/Service Description**\n\n`;
         data.products.forEach(p => {
             md += `*   **${p.name || 'N/A'}** — ${p.description || 'N/A'} *(${p.pageSource || 'N/A'})*\n`;
         });
@@ -2941,7 +2939,7 @@ function formatTask3ToMarkdown(data) {
 
     if (data.financialTable && data.financialTable.length > 0) {
         const headers = ["Metric", "Value", "Unit / Currency", "Page Source (PDF#)", "Section"];
-        md += `\n\n**Financial Data Table** *(revenue only: consolidated / standalone / segment / product)*\n\n`;
+        md += `\n\n**Financial Data Table**\n\n`;
         md += `| ${headers.join(" | ")} |\n`;
         md += `| ${headers.map(() => "---").join(" | ")} |\n`;
         data.financialTable.forEach(r => {
@@ -3144,7 +3142,7 @@ async function runAllSequentialTasks() {
         const model = genAI.getGenerativeModel({ model: selectedModel });
 
         // Add a single consolidated user query for the entire run
-        const userText = `**[Sequential Run] Starting analysis using ${seqTasks.length} tasks...**`;
+        const userText = `**Extraction run** · ${seqTasks.length} tasks`;
         const userMsgId = Date.now();
         messages.push({
             id: userMsgId,
@@ -3505,7 +3503,7 @@ async function runAllSequentialTasks() {
                     if (modelMessageIndex !== -1) {
                         // Display progress in the UI during streaming
                         const displayProgress = schema
-                            ? `*Extracting structured ESG data...*\n\n\`\`\`json\n${responseText}\n\`\`\`${warningMessage}`
+                            ? `*Working…*\n\n\`\`\`json\n${responseText}\n\`\`\`${warningMessage}`
                             : (responseText + warningMessage);
                         messages[modelMessageIndex].text = baseContentBeforeTask + taskHeader + displayProgress;
                         messages[modelMessageIndex].tokenCounts.output = completedTasksOutputTokens + taskOutputTokens;

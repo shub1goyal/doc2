@@ -1504,12 +1504,20 @@ async function handleSendMessage(event) {
                     const history = [];
                     // Map existing conversation history into Gemini format (user vs model)
                     // Skip the very first welcome message, and exclude the current user message (at messages.length - 2) and the empty model placeholder (at messages.length - 1)
+                    // CRITICAL: never push content items with empty parts[] — Gemini returns
+                    // 400 "Each content should have at least one part" on follow-up turns.
                     if (messages.length > 2) {
                         for (let idx = 1; idx < messages.length - 2; idx++) {
                             const msg = messages[idx];
                             if (msg.role === 'user' || msg.role === 'model') {
                                 const parts = [];
-                                if (msg.text) {
+                                const text = (msg.text || '').trim();
+                                // Skip empty shells and in-progress loading placeholders (empty parts → Gemini 400)
+                                const isLoadingPlaceholder =
+                                    !text ||
+                                    /^\*Working/i.test(text) ||
+                                    /^\*Extracting/i.test(text);
+                                if (text && !isLoadingPlaceholder) {
                                     parts.push({ text: msg.text });
                                 }
                                 if (msg.files && msg.files.length > 0) {
@@ -1525,7 +1533,7 @@ async function handleSendMessage(event) {
                                                     fileUri: meta.uri
                                                 }
                                             });
-                                        } else {
+                                        } else if (f.mimeType && f.fileUri) {
                                             parts.push({
                                                 fileData: {
                                                     mimeType: f.mimeType,
@@ -1535,13 +1543,27 @@ async function handleSendMessage(event) {
                                         }
                                     }
                                 }
-                                history.push({
-                                    role: msg.role === 'model' ? 'model' : 'user',
-                                    parts: parts
-                                });
+                                if (parts.length === 0) {
+                                    console.warn('Skipping history message with empty parts', msg.role, msg.id);
+                                    continue;
+                                }
+                                const role = msg.role === 'model' ? 'model' : 'user';
+                                // Merge consecutive same-role turns (Gemini requires alternation)
+                                if (history.length > 0 && history[history.length - 1].role === role) {
+                                    history[history.length - 1].parts.push(...parts);
+                                } else {
+                                    history.push({ role, parts });
+                                }
                             }
                         }
                     }
+
+                    // History for startChat must start with 'user' if non-empty
+                    while (history.length > 0 && history[0].role !== 'user') {
+                        history.shift();
+                    }
+                    // Drop trailing empty-role issues: ensure last history is model before new user turn
+                    // (SDK will append the new user message via sendMessageStream)
 
                     const thinkingConfig = buildThinkingConfig(selectedModel);
 
@@ -1560,10 +1582,20 @@ async function handleSendMessage(event) {
                     });
                 }
 
+                // Guard: never send empty parts on the active user turn
+                const safeContentParts = (contentParts || []).filter(p => {
+                    if (p.text != null) return String(p.text).length > 0;
+                    if (p.fileData) return !!(p.fileData.fileUri && p.fileData.mimeType);
+                    return false;
+                });
+                if (safeContentParts.length === 0) {
+                    throw new Error('Nothing to send: message has no text or file parts.');
+                }
+
                 // Count Input Tokens
                 try {
                     const countResult = await model.countTokens({
-                        contents: [{ role: 'user', parts: contentParts }]
+                        contents: [{ role: 'user', parts: safeContentParts }]
                         // Note: systemInstruction is intentionally omitted — the
                         // countTokens endpoint rejects it with 400 "invalid argument".
                     });
@@ -1581,7 +1613,7 @@ async function handleSendMessage(event) {
                     console.error('Error counting tokens:', tokenError);
                 }
 
-                result = await chatSession.sendMessageStream(contentParts);
+                result = await chatSession.sendMessageStream(safeContentParts);
                 break; // Success!
             } catch (error) {
                 lastError = error;

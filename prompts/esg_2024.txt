@@ -146,9 +146,11 @@ Baseline GHG metrics to search and output as rows (minimum required):
 *   **Refrigerants:** If the report only says "refrigerants" with no gas type, or lists a blend without individual constituents, **do not extract quantitative values** — flag as "Vague refrigerant disclosure — constituents not specified" in the Validation Notes.
 *   **GHG Gases Included Rule:** Only extract gases that are EXPLICITLY listed in the document as included in the disclosure. Do NOT derive or infer the list of gases based on framework/protocol references (for example, if the report mentions 'GHG Protocol', do not automatically list the 7 Kyoto gases unless they are explicitly listed in the text or tables). CRITICAL: Preserve ALL conditional qualifiers EXACTLY as they appear in the document — phrases like "(if available)", "(if any)", "(where applicable)", "(as applicable)", "(if emitted)" carry important uncertainty information and MUST NOT be stripped. Copy them verbatim. If the document says "NF3 (if available)", output "NF3 (if available)" — do not simplify to just "NF3".
 
+*   **Coverage:** In metricCoverage, list every baseline GHG metric as Found or Not disclosed after a full-document scan.
+
 ---
 
-**Task 2B: Water & Waste Data**
+**Task 2B: Water Data**
 
 **Water Data**
 
@@ -179,6 +181,15 @@ Baseline Water-Stressed Region metrics to search and output as rows (minimum req
 *   Water Consumption in Water-Stressed Regions Breakdown (extract each source/category and include total)
 *   Water Discharge in Water-Stressed Regions Breakdown (extract each destination/treatment/category and include total)
 
+**Specific Data Extraction Guidelines (Water):**
+*   **Water Consumption vs. Usage Rule:** 'Water usage' is NOT equivalent to 'Water consumption'. Only extract into 'Total Water Consumption' if explicitly labeled as 'consumption' in the document.
+*   **Water Stress Data Segregation Rule:** Extract water stress data only into the water-stressed table. Site-level breakdowns should be ignored, capture only totals.
+*   **Coverage:** In metricCoverage, list every baseline water and water-stressed metric as Found or Not disclosed after a full-document scan.
+
+---
+
+**Task 2C: Waste Data**
+
 **Waste Generation Data**
 
 Use a table with these columns:
@@ -189,17 +200,33 @@ Use a table with these columns:
 5. Section
 6. Reporting Boundary
 
+Baseline Waste Generation metrics to search (minimum; extract all disclosed categories):
+*   Total Waste Generated
+*   Hazardous Waste Generated
+*   Non-Hazardous Waste Generated
+*   Plastic Waste
+*   E-Waste
+*   Other waste categories disclosed in the report
+
 **Waste Disposal & Treatment Data**
 
 Use the same 6 columns as Waste Generation Data.
 
-**Specific Data Extraction Guidelines (Water & Waste):**
-*   **Water Consumption vs. Usage Rule:** 'Water usage' is NOT equivalent to 'Water consumption'. Only extract into 'Total Water Consumption' if explicitly labeled as 'consumption' in the document.
-*   **Water Stress Data Segregation Rule:** Extract water stress data only into the water-stressed table. Site-level breakdowns should be ignored, capture only totals.
+Baseline Waste Disposal/Treatment metrics to search (minimum; extract all disclosed routes):
+*   Waste Disposed to Landfill
+*   Waste Recycled
+*   Waste Reused
+*   Waste Incinerated / Co-processed
+*   Other disposal or treatment routes disclosed
+
+**Specific Data Extraction Guidelines (Waste):**
+*   Extract generation and disposal separately; do not double-count the same figure across both tables unless the report presents both views.
+*   Include immateriality / restatement detail rows when the report declares a waste category immaterial or restated.
+*   **Coverage:** In metricCoverage, list every baseline waste generation and disposal metric as Found or Not disclosed after a full-document scan.
 
 ---
 
-**Task 2C: Pollutants & Energy Data**
+**Task 2D: Pollutants & Energy Data**
 
 **Air & Water Pollutants Data**
 
@@ -237,121 +264,112 @@ Baseline energy metrics to search and output as rows (minimum required):
 *   Renewable Energy Consumption
 *   Non-Renewable Energy Consumption
 
+*   **Coverage:** In metricCoverage, list every baseline pollutant and energy metric as Found or Not disclosed after a full-document scan.
+
 ---
 
 **Task 3: Extract Business Context & Financial Data**
 
 **Task 3 Objective (Why this section exists):**
 
-Use this section to support NAICS classification and granular segment mapping.
-*   PRIORITIZE qualitative segment/product information (exact business activity, products, services, end-markets) over only numeric values. For Product Description, extract only qualitative descriptions and do NOT include revenue or percentage breakdown metrics.
-*   Capture the exact language and page number for each extracted segment/product description.
-*   Include only the segment/product entries for which a breakdown is actually disclosed.
-*   If product-level disclosure is more granular than segment-level, prioritize product-level details.
-*   If segment-level disclosure is more granular or product-level is unavailable, use segment-level details.
-*   Always retain both when both are disclosed.
+Use this section to support NAICS classification and granular segment/product mapping.
+*   PRIORITIZE **explicit qualitative descriptions** of what the company does in each segment/product (activities, offerings, end-markets) — NOT revenue language in the description fields.
+*   Segment and product description entries are REQUIRED **only for items that appear in the disclosed segment/product revenue or mix breakdown**. Do not invent segments/products that have no breakdown row.
+*   Revenue numbers belong **only** in the Financial Data Table (not inside Segment/Product description text).
+*   Capture exact language and page numbers for qualitative descriptions.
+*   If product-level disclosure is more granular than segment-level, prioritize product-level details for mapping; retain both when both exist.
 
 **Mandatory sequence for Task 3 (must follow in order):**
 
-1.  **Capture Consolidated Revenue first:**
-    *   Extract consolidated revenue from the primary consolidated income statement (or equivalent consolidated statement of profit and loss).
-    *   Do not use standalone company revenue as the main consolidated revenue value.
+1.  **Capture revenue rows (allowed financials only):**
+    *   Consolidated Revenue from the consolidated income / P&L statement.
+    *   Standalone Revenue if disclosed.
+    *   Segment Revenue - [name] for each segment in the breakdown.
+    *   Product Revenue - [name] for each product/category in a product-wise breakdown (if any).
+    *   **FORBIDDEN financials:** dividends, PAT, EBITDA, EBIT, assets, liabilities, cash flow, EPS, borrowings, share capital, tax, provisions, or any other statement line items not listed above.
 
-2.  **Capture Segment Breakdown second:**
-    *   Extract all segment breakdown disclosures, including qualitative descriptions and any revenue/percentage mix where provided.
-    *   Capture breakdowns presented in notes/tables, narrative paragraphs, and percentage-only disclosures.
-    *   Exclude standalone-only segment disclosures.
+2.  **Segment qualitative descriptions (breakdown segments only):**
+    *   For each segment that appears in the segment revenue/mix breakdown, extract an explicit description of **what that segment is / what the company does in it**.
+    *   No revenue, percentages, or financial figures in the description.
 
-3.  **Capture Product Description third (if available):**
-    *   If product/category/service-wise breakdown is disclosed, extract only the qualitative product description and page citation on a separate line for each product. Do NOT include any revenue or percentage breakdown metrics.
-    *   Capture descriptions presented in notes/tables, narrative paragraphs, and other disclosures.
-    *   Exclude standalone-only product disclosures.
+3.  **Product/service qualitative descriptions (breakdown products only):**
+    *   For each product/category/service in a product-wise breakdown, extract an explicit description of **what it is / what the company offers**.
+    *   No revenue or percentage metrics in the description.
 
-4.  **Perform revenue consistency check:**
-    *   Compare total segment breakdown and/or total product breakdown against consolidated revenue.
-    *   If totals reconcile, mark as "Matches Consolidated Revenue".
-    *   If totals do not reconcile, still report the breakdown and mark as "Does Not Match Consolidated Revenue".
-    *   Do not drop valid breakdown data only because reconciliation fails.
+4.  **Revenue consistency check:**
+    *   Compare total segment and/or product breakdown against consolidated revenue.
+    *   Mark "Matches Consolidated Revenue" or "Does Not Match Consolidated Revenue". Do not drop breakdowns if reconciliation fails.
 
-5.  **Granularity decision for mapping:**
-    *   State which basis should drive mapping: "Segment-based" or "Product-based".
-    *   Choose the more granular available basis.
+5.  **Granularity decision:** "Segment-based" or "Product-based" (more granular available basis).
 
-**Business & Segment Overview:**
+6.  **Organizational entities / subsidiaries:** Capture group entities (subsidiaries, JVs, associates, key reporting entities) and what they do if stated.
 
-*   **Business Overview:** [Provide a concise, near-verbatim summary] (Page #)
-*   **Segment Information/Description:** [List each business segment on a separate line with its exact qualitative description text and page citation; include revenue/percentage breakdown where available. Ensure segments are separated by a newline.]
-*   **Product Description:** [List each product/category/service on a separate line with its exact qualitative description text and page citation. Do NOT include any revenue or percentage breakdown metrics. Ensure products are separated by a newline.]
-*   **Outsourcing Information:** [Extract explicit outsourcing statements only if the company is manufacturing; otherwise mark N/A] (Page #)
-*   **Granularity Basis for Mapping:** [State "Segment-based" or "Product-based" and why] (Page #)
-*   **Revenue Consistency Status:** [State "Matches Consolidated Revenue" or "Does Not Match Consolidated Revenue"] (Page #)
+7.  **Related ESG reports / links / scope:** If the company mentions other ESG/sustainability/BRSR/CDP/TCFD reports, portals, or URLs, and any scope notes tied to them, extract those.
 
-**Financial Data Table:**
+**Business & Segment Overview fields:**
+*   **Business Overview:** Near-verbatim what the company does overall (Page #)
+*   **Segments:** name + qualitative description + page (breakdown segments only)
+*   **Products:** name + qualitative description + page (breakdown products only)
+*   **Outsourcing Information:** Manufacturing outsourcing only if explicit; else N/A (Page #)
+*   **Granularity Basis for Mapping:** Segment-based or Product-based + why (Page #)
+*   **Revenue Consistency Status:** Matches / Does Not Match Consolidated Revenue (Page #)
 
-Use a table with these columns in this exact order:
-1. Metric
-2. Value
-3. Unit / Currency
-4. Page Source (PDF#)
-5. Section
+**Financial Data Table columns:** Metric | Value | Unit / Currency | Page Source (PDF#) | Section
 
-Required financial rows to include:
+Allowed metrics only:
 *   Consolidated Revenue
-*   Segment Revenue - [Segment Name 1]
-*   Segment Revenue - [Segment Name 2]
-*   Product Revenue - [Product Name 1]
-
-Additional required row if available:
+*   Standalone Revenue (if available)
+*   Segment Revenue - [Segment Name]
+*   Product Revenue - [Product Name]
 *   Revenue Consistency Check Result
 
 **Specific Data Extraction Guidelines (Financial):**
-*   **Strict Financial Scope Rule: EXTRACT REVENUE DATA ONLY.** Do not extract profit, EBITDA, assets, liabilities, or cash flow.
-*   **Financial Data Currency Rule:** Specify the currency (e.g., USD, INR) in the "Unit / Currency" column for every row. If not specified, write "Not Specified".
+*   **Strict Financial Scope:** ONLY the allowed revenue rows above. Never dividends or other statement items.
+*   **Currency Rule:** Specify currency in Unit / Currency for every row; if unknown, "Not Specified".
 
 ---
 
 **Task 4: Handle Missing Information (Auditor Mode)**
 
-Identify valid reasons for missing data, assurance discrepancies, or zero-value disclosures. Focus ONLY on statements related to the environmental, energy, water, and waste KPIs covered in Tasks 1 and 2.
+Focus **only** on the environmental KPI universe we extract in Tasks 1-2 (GHG, water, water-stressed, waste generation/disposal, pollutants, energy), plus **materiality**, **restatement**, **boundary/scope**, and **assurance** notes that apply to those same KPIs.
 
-CRITICAL SCOPE RESTRICTION: Do NOT audit, extract, or flag any missing, unavailable, or zero-value social/governance metrics (e.g., parental leave, LTIFR, fatalities, board diversity, data breaches, political donations, job creation, training) or general financial/auditor metrics (e.g., borrowings, profits, PAT, assets, liabilities, inter-corporate deposits, statutory dues, surplus/deficit, sell currency, or financial auditor disclaimers). Any such out-of-scope flags are strictly forbidden and constitute a critical validation failure.
+CRITICAL SCOPE RESTRICTION:
+*   Do NOT extract social/governance missing data (employees, safety LTIFR, diversity, board, community, donations, training, breaches, etc.).
+*   Do NOT extract financial-auditor boilerplate (borrowings, PAT, assets, liabilities, deferred tax, goodwill, statutory dues, dividends, secretarial audit, share demat, etc.).
+*   Every note must map to a **relatedKpi** from our extraction set (or boundary/materiality of an environmental topic).
 
-Do NOT extract any findings, notes, or limitations from the financial auditor's report (such as subsidiary audit coverage, accounting standards, deferred tax assets, goodwill, cash flows, profits, or financial audit opinions). Do not include unrelated corporate disclosures (e.g., dividend policies, secretarial audits, share dematerialization, or governance board updates).
+Categories to extract (when present in the document):
+1. **missing_or_not_disclosed** — why an env KPI is missing / not measured / excluded
+2. **materiality_immaterial** — company says an env topic/KPI is immaterial / not material / not applicable (include justification)
+3. **restatement** — prior-year env KPI restated/recalculated (reason + which KPI)
+4. **assurance_limitation** — ESG/sustainability assurance limits for GHG/env data
+5. **boundary_or_scope** — scope exclusions for our env KPIs
+6. **zero_value_disclosure** — meaningful zero env findings (not generic boilerplate)
+7. **other_esg_report_reference** — pointers to other ESG reports relevant to our KPI gaps/scope
 
-Guidelines for extraction:
-1. **Assurance Statements:** Include important disclosures ONLY from the third-party ESG/sustainability/BRSR Assurance/Verification Statement regarding environmental/GHG data limits or boundaries.
-2. **Zero-Value Findings:** Include specific zero-value environmental findings (qualitative or quantitative, such as "zero environmental spills" or "no hazardous waste exported"), but exclude generic templated boilerplate.
-3. **Data Gaps & Exclusions:** Extract sentences explaining why any environmental or energy/water/waste data is missing, not measured, or excluded from the reporting scope.
-4. **Immaterial KPIs:** If a KPI is missing because the company states it is "immaterial" or "non-material", include the exact qualitative justification in the Data Availability Notes.
+If nothing in-scope is found, return an empty notes array.
 
 ---
 
 **Task 4B: YoY Variance Analysis (≥20% Change)**
 
-**Task 4B Objective (Why this section exists):**
-Analyze year-over-year (YoY) variances to identify and explain significant changes (≥20%) for the environmental KPIs extracted in Tasks 2A, 2B, and 2C, and the Consolidated Revenue extracted in Task 3.
+**Task 4B Objective:**
+Explain significant YoY changes (≥20%) for environmental KPIs from Tasks 2A-2D and Consolidated Revenue from Task 3. Do **not** omit usable explanations.
 
 **YoY Variance Rules:**
-*   **20% THRESHOLD:** Calculate the YoY change percentage for each metric from Tasks 2A, 2B, 2C, and the Consolidated Revenue in Task 3. Only include the metric if the absolute YoY change is ≥20%. Calculate YoY change as: `((Current Year Value - Prior Year Value) / Prior Year Value) * 100`.
-    - If prior year is zero and current year has a non-zero value, flag as "New Disclosure — no prior year baseline".
-    - If current year is zero and prior year was non-zero, flag as "Discontinued / Zero in current year".
-*   **LATEST YOY ONLY:** Compare only the current reporting year against the immediately preceding year.
-*   **NO INTENSITY METRICS:** Do not include intensity or normalized metrics.
-*   **REVENUE VARIANCE — CONSOLIDATED ONLY:** Extract variance reasons only for Consolidated Revenue. Do NOT run variance or extract explanations for segment or product revenues.
-*   **EXHAUSTIVE EXPLANATION SEARCH:** For each flagged metric, search the entire document for qualitative explanations (e.g. in MD&A, Directors' Report, Segment-wise discussion, CEO letters, footnotes, etc.). If no explanation is found, write "No explanation found in document".
-*   **SOURCE TRACING:** Include the specific PDF page citation for the values and explanations.
+*   **20% THRESHOLD:** `((Current - Prior) / Prior) * 100`. Include only abs(variance) ≥ 20%, or New Disclosure / Discontinued-zero cases.
+*   **LATEST YOY ONLY:** Current reporting year vs immediately preceding year.
+*   **NO INTENSITY METRICS.**
+*   **REVENUE VARIANCE — CONSOLIDATED ONLY** (not segment/product revenues for variance reasons).
+*   **REASON EXTRACTION (DO NOT OMIT):**
+    1. First search for a **direct** sentence that explains this KPI's change (MD&A, Directors' Report, footnotes, ESG narrative, energy/water/waste commentary).
+    2. If no direct reason, extract **related** reasons that can plausibly explain the variance (production volume, capacity utilization, plant start-up/shutdown, fuel mix, renewable share, boundary expansion/contraction, acquisitions/divestments, methodology/emission-factor changes, weather, efficiency projects, regulatory changes, waste diversion programs, water recycling, etc.). Mark reasonType = related and keep the text near-verbatim.
+    3. Only if exhaustive search finds nothing usable: reasonType = not_found and reason = "No explanation found in document".
+*   Prefer completeness: multiple related factors may be combined in one reason cell with page cites.
+*   **SOURCE TRACING:** List pages for values and for reason text.
 
-**Variance Analysis Output:**
-Use a table with these columns:
-1. KPI Name
-2. Target Year Value
-3. Target Year Unit
-4. Previous Year Value
-5. Previous Year Unit
-6. Variance Percent
-7. Direction (Increase / Decrease / N/A)
-8. Reason / Explanation (Verbatim or near-verbatim reason explaining the change if variance is >20%)
-9. Page Source (PDF Page source where the values and reasons are mentioned)
+**Variance Analysis Output columns:**
+KPI Name | Target Year Value | Unit | Previous Year Value | Unit | Variance % | Direction | Reason Type (direct/related/not_found) | Explanation / Reason | Page Source
 
 ---
 
@@ -367,9 +385,8 @@ Use a table with these columns:
 *   Table Format Check: Correct section-wise column order followed and no truly empty cells?
 *   KPI Coverage Check: All requested KPIs were reviewed even if only available data was output?
 *   Missing KPI Output Check: Missing KPIs were omitted from final tables rather than shown as "Not Found"?
-*   QC Scope Restriction: Focus ONLY on the environmental and revenue KPIs of Tasks 1, 2, and 3. Do NOT audit or flag any out-of-scope metrics (such as borrowings, investments, assets, liabilities, profits/PAT, social/governance metrics like diversity, training, safety/LTIFR, or audit disclaimers from the financial auditor's report) as missing or corrections. Specifically, do NOT check, flag, or audit out-of-scope items like parental leave, LTIFR, fatalities, board composition, data breaches, political donations, surplus/deficit, sell currency, inter-corporate deposits, or statutory dues.
-*   Immateriality Completeness Check: Were immateriality detail rows created for every metric where the report declares a KPI, scope, or resource as immaterial, non-material, not relevant, not applicable, negligible, nil, or null? Check footnotes, methodology sections, and scope descriptions.
+*   QC Scope Restriction: Focus ONLY on the environmental and revenue KPIs of Tasks 1, 2, and 3. Do NOT audit or flag any out-of-scope metrics (such as borrowings, investments, assets, liabilities, profits/PAT, social/governance metrics like diversity, training, safety/LTIFR, or audit disclaimers from the financial auditor's report) as missing or corrections.
+*   Immateriality Completeness Check: Were immateriality detail rows created for every metric where the report declares a KPI, scope, or resource as immaterial, non-material, not relevant, not applicable, negligible, nil, or null?
 *   Restatement Completeness Check: Were `[Metric Name] - Restatement Details` rows created for every metric in Tasks 2/3 where the document indicates prior values have been restated, corrected, or recalculated?
-*   Variance Completeness Check: Did Task 4B correctly analyze all environmental KPIs and consolidated revenue that have ≥20% YoY variance, and retrieve qualitative explanations?
-
+*   Variance Completeness Check: Did Task 4B correctly analyze all environmental KPIs and consolidated revenue that have >=20% YoY variance, and retrieve direct or related qualitative explanations without omitting usable reasons?
 

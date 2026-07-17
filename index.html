@@ -213,6 +213,36 @@
             box-sizing: border-box;
         }
 
+        /* Collapsible metric coverage checklist */
+        .metric-coverage-collapsible {
+            margin-top: 0.75rem;
+            padding: 0.5rem 0.75rem;
+            border: 1px solid #e5e7eb;
+            border-radius: 0.5rem;
+            background: #f9fafb;
+            font-size: 0.875rem;
+        }
+        .metric-coverage-collapsible > summary {
+            cursor: pointer;
+            user-select: none;
+            list-style: none;
+            color: #374151;
+        }
+        .metric-coverage-collapsible > summary::-webkit-details-marker {
+            display: none;
+        }
+        .metric-coverage-collapsible > summary::before {
+            content: '▸ ';
+            color: #6b7280;
+        }
+        .metric-coverage-collapsible[open] > summary::before {
+            content: '▾ ';
+        }
+        .metric-coverage-collapsible table {
+            margin-top: 0.5rem;
+            font-size: 0.8125rem;
+        }
+
         /* Styles for copy and export buttons */
         .message-buttons {
             position: absolute;

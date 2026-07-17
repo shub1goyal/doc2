@@ -4,3 +4,9 @@ node_modules/
 .DS_Store
 __pycache__/
 *.pyc
+
+# Local secrets (never commit)
+.keys.local
+.env
+.env.local
+

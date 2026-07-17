@@ -13,5 +13,6 @@ Key features:
 - **Styling**: Tailwind CSS via CDN.
 - **Markdown Parsing**: `marked.js` library via CDN for high-fidelity conversion of Gemini's Markdown output (including complex multi-column tables) to parsed HTML.
 - **LLM Engine**: Google Gemini API via the ESM module `@google/generative-ai`.
-- **API Key Resiliency**: Uses an injected list of Gemini API keys. In case of API quota limits (429), permissions issues (403), internal errors (500), service overloads (503), gateway timeouts (504), or high-demand spikes, the application rotates through keys or uses exponential backoff to recover gracefully.
-- **File Ingestion**: Uploads PDF, DOCX, TXT, HTML, and image files to the Gemini File API using resumable HTTP uploads for caching and session context retention.
+- **API Key Resiliency**: Uses an injected comma-separated list of Gemini API keys (`GEMINI_API_KEYS`). Sequential extraction keeps one active key for the whole run so File API URIs stay valid. On quota/key errors the app rotates keys and re-resolves file URIs; after a successful full run it rotates for load spreading. Invalid-key errors rotate before wiping the pool when alternates exist.
+- **File Ingestion**: Uploads PDF, DOCX, TXT, HTML, and image files to the Gemini File API using resumable HTTP uploads for caching and session context retention. File URIs are bound to the API key that uploaded them.
+- **Sequential multi-task extraction**: ESG presets split into focused tasks (Document scope, GHG, Water, Waste, Pollutants/Energy, Finance, Missing info, YoY variance, QC). Each task uses structured JSON (`responseMimeType` + `responseSchema`) converted to Markdown in-app. Max thinking: `thinkingBudget` hard max for Gemini 2.5, `thinkingLevel: high` for Gemini 3.x.

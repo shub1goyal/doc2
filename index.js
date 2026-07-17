@@ -36,6 +36,42 @@ function rotateAPIKey() {
     return true;
 }
 
+/**
+ * Max reasoning config for extraction quality.
+ * Gemini 2.5: thinkingBudget is an integer (0 off, -1 dynamic, hard max Flash 24576 / Pro 32768).
+ * Gemini 3/3.5: thinkingLevel is an enum string (minimal | low | medium | high).
+ */
+function buildThinkingConfig(modelName) {
+    const m = (modelName || '').toLowerCase();
+    if (m.includes('gemini-2.5-pro')) {
+        return { thinkingBudget: 32768 };
+    }
+    if (m.includes('gemini-2.5')) {
+        return { thinkingBudget: 24576 };
+    }
+    if (m.includes('gemini-3')) {
+        return { thinkingLevel: 'high' };
+    }
+    return { thinkingBudget: 24576 };
+}
+
+/** Merge extra comma-separated keys into the pool (session only; no localStorage). */
+function addAPIKeysFromString(keysStr) {
+    if (!keysStr || typeof keysStr !== 'string') return 0;
+    const incoming = keysStr.split(/[,\n]+/).map(k => k.trim()).filter(Boolean);
+    let added = 0;
+    for (const k of incoming) {
+        if (!API_KEYS.includes(k)) {
+            API_KEYS.push(k);
+            added++;
+        }
+    }
+    if (API_KEYS.length > 0 && !genAI) {
+        initializeGenAI();
+    }
+    return added;
+}
+
 function isTransientOrRetryableError(error) {
     if (!error) return false;
     const errMsg = (error.message || "").toLowerCase();
@@ -72,11 +108,13 @@ const SYSTEM_INSTRUCTION = {
         text: `You are Analyst AI, a specialized document analysis assistant for financial and ESG reporting.
 
 **CRITICAL: Response Requirements**
+- ALL responses must be structured JSON matching the active response schema (never free-form prose or markdown outside JSON)
 - Provide ONLY the information requested in the user's prompt
-- Do NOT add extra sections like 'Recommendations', 'Summary', 'Conclusions', or 'Additional Notes'
+- Do NOT add extra sections like 'Recommendations', 'Summary', 'Conclusions', or 'Additional Notes' unless they are schema fields
 - Do NOT provide unsolicited advice or suggestions
 - Keep responses focused and minimal - answer only what is asked
 - Avoid verbose explanations unless specifically requested
+- The application converts your JSON into Markdown for display — you must output valid JSON only
 
 **CRITICAL: Accuracy and Source Requirements**
 - NEVER invent, assume, or hallucinate information that is not explicitly present in the provided documents
@@ -189,6 +227,8 @@ let seqTasks = [];             // [{id, name, prompt}]
 let seqGlobalContext = '';     // Shared rules prepended to each task
 let isRunningSeq = false;
 let seqTaskIdCounter = 0;
+let uploadedFileMetadata = []; // Cached file metadata: { name, uri, mimeType, keyFingerprint? }
+let seqTaskOutputs = {};       // Store text results per task: { taskId: text }
 
 // Load prompt presets from files
 async function loadPromptPresets() {
@@ -286,17 +326,13 @@ const promptPrefixModal = safeGetElement('prompt-prefix-modal');
 const prefixForm = safeGetElement('prefix-form');
 // ... other elements
 
-// Add listener to model selector
+// Model switch: keep uploaded PDFs and chat UI; only drop Gemini chat session
+// so the next request uses the new model (no popup, no file wipe).
 if (modelSelect) {
     modelSelect.addEventListener('change', () => {
-        // When model changes, we should ideally reset the session or just warn
-        // For simplicity, we'll reset the session to ensure clean state
-        if (confirm('Changing the model will reset your current chat session. Continue?')) {
-            resetSession();
-        } else {
-            // Revert selection if user cancels
-            // We would need to track previous value to revert, but this is simple enough
-        }
+        chatSession = null;
+        const name = modelSelect.value || 'new model';
+        showToast(`Model switched to ${name}. Uploaded files kept.`, 'success');
     });
 }
 
@@ -413,8 +449,8 @@ if (chatContainer) {
     chatContainer.addEventListener('scroll', handleChatScroll);
 }
 
-// Initialize the chat with a welcome message
-initializeChat();
+// Welcome message is initialized at end of module (after all consts) — see bottom of file.
+// Early call removed: it crashed on TDZ when welcome referenced later consts, breaking Send.
 
 // Remove the call to initializeDefaultPrompts since we're loading from files
 // initializeDefaultPrompts();
@@ -924,7 +960,9 @@ Upload documents or ask me anything!`;
 
     // Add warning if no build-injected keys are configured
     if (API_KEYS.length === 0) {
-        welcomeMessage += '\n\n⚠️ **Configuration Required**: No Gemini API keys are configured. Please ensure they are injected at build time via GitHub Secrets (`GEMINI_API_KEYS`).';
+        welcomeMessage += '\n\n⚠️ **Configuration Required**: No Gemini API keys are configured. Please ensure they are injected at build time via GitHub Secrets (`GEMINI_API_KEYS` as a comma-separated list).';
+    } else {
+        welcomeMessage += `\n\n🔑 **${API_KEYS.length} Gemini API key(s)** loaded. Extraction runs **sequentially** (one task at a time) on the active API key; keys rotate on rate-limit/errors and after a successful full run when multiple keys are available.`;
     }
 
     messages = [
@@ -940,21 +978,46 @@ Upload documents or ask me anything!`;
 // API Key Modal Functions removed (replaced by environment key injection)
 
 /**
- * Reset Session Function
+ * True full session reset — drops chat, files, caches, sequential state, and in-flight flags.
+ * API keys and model selection are intentionally kept.
  */
 function resetSession() {
-    // Clear messages
-    messages = [];
+    // Abort any sequential/run flags
+    isRunningSeq = false;
+    isLoading = false;
+    loadingMessage = 'Analyst AI is typing...';
 
-    // Reset chat session
+    // Drop Gemini chat session
     chatSession = null;
 
-    // Clear any uploaded files
-    removeAllFiles();
-    cachedFileObjects = []; // Reset preserved session files cache
+    // Clear conversation
+    messages = [];
 
-    // Reinitialize with welcome message
+    // Clear all file state (UI list + File API caches + original File objects)
+    uploadedFiles = [];
+    cachedFileObjects = [];
+    uploadedFileMetadata = [];
+    if (fileInput) {
+        fileInput.value = '';
+    }
+
+    // Clear sequential extraction state
+    seqTasks = [];
+    seqGlobalContext = '';
+    seqTaskOutputs = {};
+    seqTaskIdCounter = 0;
+
+    // Hide upload progress UI if visible
+    if (typeof hideUploadProgress === 'function') {
+        try { hideUploadProgress(); } catch (_) { /* ok if not yet defined at parse time — called at runtime */ }
+    }
+
+    // Fresh welcome screen
     initializeChat();
+    if (typeof renderFileList === 'function') {
+        try { renderFileList(); } catch (_) { /* runtime-safe */ }
+    }
+    showToast('Session fully reset.', 'success');
 }
 
 /**
@@ -1044,6 +1107,8 @@ function handleFileSelection(event) {
  */
 function removeAllFiles() {
     uploadedFiles = [];
+    cachedFileObjects = [];
+    uploadedFileMetadata = [];
     if (fileInput) {
         fileInput.value = '';
     }
@@ -1381,12 +1446,13 @@ async function handleSendMessage(event) {
                 // Prepare content parts for the message (built dynamically for the current active key)
                 const contentParts = [];
 
-                // Add text with instruction to identify report types
+                // Add text with instruction to identify report types + force structured JSON
                 if (finalMessage) {
                     let enhancedMessage = finalMessage;
                     if (uploadedFiles.length > 0) {
-                        enhancedMessage += "\n\nBefore analyzing the content, please identify the company name and what type of report each document is based on its content (Annual Report, Sustainability Report, or ESG Report) and mention this in your response in the format: \"[Company Name] - [Document Type]\".";
+                        enhancedMessage += "\n\nBefore analyzing the content, please identify the company name and what type of report each document is based on its content (Annual Report, Sustainability Report, or ESG Report) and mention this in your response answer field in the format: \"[Company Name] - [Document Type]\".";
                     }
+                    enhancedMessage += `\n\nCRITICAL: Respond with a single JSON object only (no markdown fences, no prose outside JSON). Use the response schema: answer, bulletPoints, tables[{title,headers,rows[{cells}]}], citations[{claim,pageSource}], notFound. Put all extracted metrics in tables when possible. Cite PDF pages. Do not invent data.`;
                     contentParts.push({ text: enhancedMessage });
                 }
 
@@ -1479,23 +1545,18 @@ async function handleSendMessage(event) {
                         }
                     }
 
-                    const activeModelLower = selectedModel.toLowerCase();
-                    const thinkingConfig = {};
-                    if (activeModelLower.includes("gemini-2.5")) {
-                        thinkingConfig.thinkingBudget = -1; // Max/dynamic thinking for 2.5
-                    } else if (activeModelLower.includes("gemini-3")) {
-                        thinkingConfig.thinkingLevel = "high"; // Max thinking level for 3/3.5
-                    } else {
-                        thinkingConfig.thinkingBudget = -1; // Fallback
-                    }
+                    const thinkingConfig = buildThinkingConfig(selectedModel);
 
+                    // All chat/follow-up responses use structured JSON (converted to Markdown in-app)
                     chatSession = model.startChat({
                         history: history,
                         safetySettings,
                         generationConfig: {
-                            temperature: 0.4,
-                            maxOutputTokens: 64000, // Increase limit to prevent truncation
-                            thinkingConfig: thinkingConfig
+                            temperature: 0.2,
+                            maxOutputTokens: 64000,
+                            thinkingConfig: thinkingConfig,
+                            responseMimeType: "application/json",
+                            responseSchema: FollowUpSchema
                         },
                         systemInstruction: SYSTEM_INSTRUCTION
                     });
@@ -1577,8 +1638,9 @@ async function handleSendMessage(event) {
             throw lastError || new Error("Failed to send message after all attempts.");
         }
 
-        // Process the streamed response
+        // Process the streamed JSON response, then convert to Markdown for display
         let responseText = '';
+        let warningMessage = '';
         for await (const chunk of result.stream) {
             const chunkText = chunk.text();
             responseText += chunkText;
@@ -1588,23 +1650,22 @@ async function handleSendMessage(event) {
                 const finishReason = chunk.candidates[0].finishReason;
                 if (finishReason && finishReason !== 'STOP') {
                     console.warn('Generation stopped with reason:', finishReason);
-                    // Append warning to text if it stopped abnormally
                     if (finishReason === 'SAFETY') {
-                        responseText += '\n\n**[Generation stopped due to Safety Filters]**';
+                        warningMessage = '\n\n**[Generation stopped due to Safety Filters]**';
                     } else if (finishReason === 'MAX_TOKENS') {
-                        responseText += '\n\n**[Generation stopped due to Max Token Limit]**';
+                        warningMessage = '\n\n**[Generation stopped due to Max Token Limit]**';
                     } else {
-                        responseText += `\n\n**[Generation stopped: ${finishReason}]**`;
+                        warningMessage = `\n\n**[Generation stopped: ${finishReason}]**`;
                     }
                 }
             }
 
-            // Update the model's message with the accumulated text
+            // Show streaming JSON progress (final message will be Markdown)
             const modelMessageIndex = messages.findIndex(msg => msg.id === responseId);
             if (modelMessageIndex !== -1) {
-                messages[modelMessageIndex].text = responseText;
+                messages[modelMessageIndex].text =
+                    `*Extracting structured response...*\n\n\`\`\`json\n${responseText}\n\`\`\`${warningMessage}`;
 
-                // Check for usage metadata in the chunk (often in the last chunk)
                 if (chunk.usageMetadata) {
                     messages[modelMessageIndex].tokenCounts = {
                         input: chunk.usageMetadata.promptTokenCount,
@@ -1615,6 +1676,16 @@ async function handleSendMessage(event) {
 
                 render();
             }
+        }
+
+        // Convert structured JSON → Markdown for the UI (same pattern as sequential tasks)
+        let displayMarkdown = parseStructuredResponseToMarkdown(responseText, formatFollowUpToMarkdown);
+        if (warningMessage) displayMarkdown += warningMessage;
+
+        const finalMsgIndex = messages.findIndex(msg => msg.id === responseId);
+        if (finalMsgIndex !== -1) {
+            messages[finalMsgIndex].text = displayMarkdown;
+            render();
         }
 
         // Clear the files after successful processing
@@ -1628,10 +1699,19 @@ async function handleSendMessage(event) {
         let errorMessage = 'Sorry, an error occurred. Please try again.';
 
         if (error.message && (error.message.includes('API key not valid') || error.message.includes('API key'))) {
-            errorMessage = 'API key error: The active API key is invalid. Please check your injected keys or environment configuration.';
-            API_KEYS = [];
-            genAI = null;
-            chatSession = null;
+            // Prefer rotating to another key in the pool instead of wiping all keys
+            if (API_KEYS.length > 1 && rotateAPIKey()) {
+                errorMessage = 'API key error on active key. Rotated to the next key in the pool — please try again.';
+                chatSession = null;
+            } else {
+                errorMessage = 'API key error: The active API key is invalid. Please check your injected keys or environment configuration.';
+                // Only clear the pool when there are no alternates left
+                if (API_KEYS.length <= 1) {
+                    API_KEYS = [];
+                    genAI = null;
+                }
+                chatSession = null;
+            }
         } else if (error.message) {
             errorMessage = `Error: ${error.message}`;
         }
@@ -1703,7 +1783,8 @@ function render() {
             `;
             copyButton.addEventListener('click', function (e) {
                 e.stopPropagation();
-                copyToClipboard(message.text);
+                // Full response copy excludes Metric Coverage Checklist blocks
+                copyToClipboard(stripExcludedFromCopy(message.text));
             });
 
             // Copy all tables button (TSV for Excel)
@@ -1723,7 +1804,29 @@ function render() {
                     return;
                 }
                 let allTsv = '';
-                tables.forEach((table, idx) => {
+                const tablesToCopy = Array.from(tables).filter(table => {
+                    if (table.closest('.metric-coverage-collapsible')) return false;
+                    // Walk previous siblings/headings to skip Task 4 / 4B tables
+                    let el = table;
+                    for (let hop = 0; hop < 12 && el; hop++) {
+                        el = el.previousElementSibling;
+                        if (!el) break;
+                        const t = (el.textContent || '').trim();
+                        if (/Task\s*4B|Variance Analysis|Missing Information|Auditor Mode|Task\s*4\b|Organizational Entities|Subsidiaries|Related ESG Reports/i.test(t)) {
+                            return false;
+                        }
+                        // Stop if we hit another task heading that is not 4/4B
+                        if (/^⚡?\s*Task\s*[1235]/i.test(t) || /Document Identification|GHG|Water|Waste|Pollutant|Business|Quality Control/i.test(t)) {
+                            break;
+                        }
+                    }
+                    return true;
+                });
+                if (tablesToCopy.length === 0) {
+                    showToast('No tables to copy (coverage / Task 4–4B excluded).', 'info');
+                    return;
+                }
+                tablesToCopy.forEach((table, idx) => {
                     // Try to find the preceding heading/bold label for context
                     let tableTitle = '';
                     let prev = table.closest('.relative')?.previousElementSibling || table.previousElementSibling;
@@ -1732,19 +1835,21 @@ function render() {
                         if (text) { tableTitle = text; break; }
                         prev = prev.previousElementSibling;
                     }
-                    if (tableTitle) allTsv += `\n${tableTitle}\n`;
+                    if (tableTitle && !/Metric Coverage Checklist|Organizational Entities|Related ESG Reports/i.test(tableTitle)) {
+                        allTsv += `\n${tableTitle}\n`;
+                    }
                     const rows = table.querySelectorAll('tr');
                     rows.forEach(row => {
                         const cells = row.querySelectorAll('th, td');
                         allTsv += Array.from(cells).map(c => c.textContent.trim()).join('\t') + '\n';
                     });
-                    if (idx < tables.length - 1) allTsv += '\n';
+                    if (idx < tablesToCopy.length - 1) allTsv += '\n';
                 });
 
                 if (navigator.clipboard && window.ClipboardItem) {
                     const tsvBlob = new Blob([allTsv.trim()], { type: 'text/plain' });
                     navigator.clipboard.write([new ClipboardItem({ 'text/plain': tsvBlob })]).then(() => {
-                        showToast(`All ${tables.length} tables copied! Ready for Excel.`);
+                        showToast(`All ${tablesToCopy.length} tables copied! Ready for Excel.`);
                     }).catch(() => copyToClipboard(allTsv.trim()));
                 } else {
                     copyToClipboard(allTsv.trim());
@@ -2035,11 +2140,10 @@ window.copyTableToClipboard = copyTableToClipboard;
    Results stream directly into the chat container as model messages.
    ================================================================ */
 
-// ── Additional State ────────────────────────────────────────────
-let uploadedFileMetadata = []; // Cached file metadata: { name, uri, mimeType }
-let seqTaskOutputs = {};       // Store text results per task: { taskId: text }
-
 // ── JSON Schemas for Structured ESG Extraction ───────────────────
+// (uploadedFileMetadata / seqTaskOutputs declared with main app state above)
+
+
 const Task1Schema = {
     type: "OBJECT",
     properties: {
@@ -2124,52 +2228,153 @@ const Task2RowSchema = {
     required: ["metric", "value", "unit", "pageSource", "section", "reportingBoundary"]
 };
 
+/** Forces the model to account for every baseline metric even when main tables omit empty rows. */
+const MetricCoverageItemSchema = {
+    type: "OBJECT",
+    properties: {
+        metricName: { type: "STRING", description: "Baseline metric name exactly as listed in the task prompt." },
+        status: {
+            type: "STRING",
+            description: "Found if any value was extracted into a table; Not disclosed if searched and absent.",
+            enum: ["Found", "Not disclosed"]
+        },
+        notes: {
+            type: "STRING",
+            description: "Brief note (e.g. page hints searched, immaterial flag, or N/A)."
+        }
+    },
+    required: ["metricName", "status", "notes"]
+};
+
 const Task2Schema = {
     type: "OBJECT",
     properties: {
-        ghgTable: { type: "ARRAY", items: Task2RowSchema, description: "GHG Emissions Data table. Only include metrics with data actually available in the report. If a metric is missing/not disclosed, do not include it." },
-        waterTable: { type: "ARRAY", items: Task2RowSchema, description: "Water Data table. Only include metrics with data actually available." },
+        ghgTable: { type: "ARRAY", items: Task2RowSchema, description: "GHG Emissions Data table. Only include metrics with data actually available in the report. If a metric is missing/not disclosed, do not include it. Scan the ENTIRE document for every GHG metric and all page occurrences." },
+        waterTable: { type: "ARRAY", items: Task2RowSchema, description: "Water Data table. Only include metrics with data actually available. Exhaustive full-document scan." },
         waterStressedTable: { type: "ARRAY", items: Task2RowSchema, description: "Water Data in Water-Stressed Regions table. Only include metrics with data actually available." },
         wasteGenerationTable: { type: "ARRAY", items: Task2RowSchema, description: "Waste Generation Data table. Only include metrics with data actually available." },
         wasteDisposalTable: { type: "ARRAY", items: Task2RowSchema, description: "Waste Disposal & Treatment Data table. Only include metrics with data actually available." },
         pollutantsTable: { type: "ARRAY", items: Task2RowSchema, description: "Air & Water Pollutants Data table. Only include metrics with data actually available." },
-        energyTable: { type: "ARRAY", items: Task2RowSchema, description: "Energy Data table. Only include metrics with data actually available." }
+        energyTable: { type: "ARRAY", items: Task2RowSchema, description: "Energy Data table. Only include metrics with data actually available." },
+        metricCoverage: {
+            type: "ARRAY",
+            items: MetricCoverageItemSchema,
+            description: "One entry for every baseline metric in the task prompt. Main tables still omit empty rows; this list must still account for each baseline metric."
+        }
     },
-    required: ["ghgTable", "waterTable", "waterStressedTable", "wasteGenerationTable", "wasteDisposalTable", "pollutantsTable", "energyTable"]
+    required: ["ghgTable", "waterTable", "waterStressedTable", "wasteGenerationTable", "wasteDisposalTable", "pollutantsTable", "energyTable", "metricCoverage"]
 };
 
 const Task2ASchema = {
     type: "OBJECT",
     properties: {
-        ghgTable: { type: "ARRAY", items: Task2RowSchema, description: "GHG Emissions Data table. Only include metrics with data actually available in the report. If a metric is missing/not disclosed, do not include it." }
+        ghgTable: {
+            type: "ARRAY",
+            items: Task2RowSchema,
+            description: "GHG Emissions Data. Baseline metrics to search: GHG Scope 1; Scope 2 Location-Based; Scope 2 Market-Based; GHG Total (Scopes 1 & 2) if pre-calculated; Biogenic Emissions; GHG Gases Included (qualitative, preserve qualifiers); Gas Breakdown Detail; Scope 3 Category Breakdown; additional GHG metrics (e.g. refrigerants). Only include rows with data available. Full-document multi-page scan."
+        },
+        metricCoverage: {
+            type: "ARRAY",
+            items: MetricCoverageItemSchema,
+            description: "One entry per baseline GHG metric listed in the task (Found or Not disclosed)."
+        }
     },
-    required: ["ghgTable"]
+    required: ["ghgTable", "metricCoverage"]
 };
 
+/** Water only (Task 2B). */
+const Task2WaterSchema = {
+    type: "OBJECT",
+    properties: {
+        waterTable: {
+            type: "ARRAY",
+            items: Task2RowSchema,
+            description: "Water Data. Baseline: Total Water Consumption; Water Consumption Breakdown; Total Water Withdrawal; Water Withdrawal by Source Breakdown; Total Water Discharge; Water Discharge Breakdown. Only rows with data available. Full-document scan. 'Usage' is NOT consumption."
+        },
+        waterStressedTable: {
+            type: "ARRAY",
+            items: Task2RowSchema,
+            description: "Water-Stressed Regions. Baseline: Total Consumption / Withdrawal / Discharge in water-stressed regions and breakdowns. Totals only (ignore site-level). Only rows with data available."
+        },
+        metricCoverage: {
+            type: "ARRAY",
+            items: MetricCoverageItemSchema,
+            description: "One entry per baseline water and water-stressed metric (Found or Not disclosed)."
+        }
+    },
+    required: ["waterTable", "waterStressedTable", "metricCoverage"]
+};
+
+/** Waste only (Task 2C). */
+const Task2WasteSchema = {
+    type: "OBJECT",
+    properties: {
+        wasteGenerationTable: {
+            type: "ARRAY",
+            items: Task2RowSchema,
+            description: "Waste Generation. Extract all generation categories/totals disclosed (hazardous, non-hazardous, plastic, e-waste, etc.). Only rows with data available. Full-document scan."
+        },
+        wasteDisposalTable: {
+            type: "ARRAY",
+            items: Task2RowSchema,
+            description: "Waste Disposal & Treatment. Extract landfill, recycled, reused, incinerated, co-processed, and other treatment/disposal routes disclosed. Only rows with data available."
+        },
+        metricCoverage: {
+            type: "ARRAY",
+            items: MetricCoverageItemSchema,
+            description: "One entry per major waste generation and disposal baseline category searched (Found or Not disclosed)."
+        }
+    },
+    required: ["wasteGenerationTable", "wasteDisposalTable", "metricCoverage"]
+};
+
+/** Legacy combined water+waste schema (older prompts). */
 const Task2BSchema = {
     type: "OBJECT",
     properties: {
         waterTable: { type: "ARRAY", items: Task2RowSchema, description: "Water Data table. Only include metrics with data actually available." },
         waterStressedTable: { type: "ARRAY", items: Task2RowSchema, description: "Water Data in Water-Stressed Regions table. Only include metrics with data actually available." },
         wasteGenerationTable: { type: "ARRAY", items: Task2RowSchema, description: "Waste Generation Data table. Only include metrics with data actually available." },
-        wasteDisposalTable: { type: "ARRAY", items: Task2RowSchema, description: "Waste Disposal & Treatment Data table. Only include metrics with data actually available." }
+        wasteDisposalTable: { type: "ARRAY", items: Task2RowSchema, description: "Waste Disposal & Treatment Data table. Only include metrics with data actually available." },
+        metricCoverage: {
+            type: "ARRAY",
+            items: MetricCoverageItemSchema,
+            description: "One entry per baseline water/waste metric (Found or Not disclosed)."
+        }
     },
-    required: ["waterTable", "waterStressedTable", "wasteGenerationTable", "wasteDisposalTable"]
+    required: ["waterTable", "waterStressedTable", "wasteGenerationTable", "wasteDisposalTable", "metricCoverage"]
 };
 
+/** Pollutants & Energy (Task 2D after renumbering; also matches legacy Task 2C). */
 const Task2CSchema = {
     type: "OBJECT",
     properties: {
-        pollutantsTable: { type: "ARRAY", items: Task2RowSchema, description: "Air & Water Pollutants Data table. Only include metrics with data actually available." },
-        energyTable: { type: "ARRAY", items: Task2RowSchema, description: "Energy Data table. Only include metrics with data actually available." }
+        pollutantsTable: {
+            type: "ARRAY",
+            items: Task2RowSchema,
+            description: "Air & Water Pollutants. Baseline: NOx, SOx, VOC, PM, PM2.5, PM10, Water Pollutants (all provided). Only rows with data available. Full-document scan."
+        },
+        energyTable: {
+            type: "ARRAY",
+            items: Task2RowSchema,
+            description: "Energy Data. Baseline: Total Energy Consumption; Energy Consumption Breakdown; Biomass; Renewable; Non-Renewable. Only rows with data available."
+        },
+        metricCoverage: {
+            type: "ARRAY",
+            items: MetricCoverageItemSchema,
+            description: "One entry per baseline pollutant and energy metric (Found or Not disclosed)."
+        }
     },
-    required: ["pollutantsTable", "energyTable"]
+    required: ["pollutantsTable", "energyTable", "metricCoverage"]
 };
 
 const FinancialRowSchema = {
     type: "OBJECT",
     properties: {
-        metric: { type: "STRING" },
+        metric: {
+            type: "STRING",
+            description: "ALLOWED metrics only: Consolidated Revenue; Standalone Revenue; Segment Revenue - [Name]; Product Revenue - [Name]; Revenue Consistency Check Result. FORBIDDEN: dividends, PAT, EBITDA, assets, liabilities, cash flow, EPS, borrowings, share capital, or other P&L/BS line items."
+        },
         value: { type: "STRING" },
         unitCurrency: { type: "STRING" },
         pageSource: { type: "STRING" },
@@ -2178,24 +2383,105 @@ const FinancialRowSchema = {
     required: ["metric", "value", "unitCurrency", "pageSource", "section"]
 };
 
+/** Qualitative description of a segment/product that appears in the disclosed breakdown. */
+const SegmentOrProductItemSchema = {
+    type: "OBJECT",
+    properties: {
+        name: { type: "STRING", description: "Exact segment or product/category name as used in the breakdown." },
+        description: {
+            type: "STRING",
+            description: "EXPLICIT qualitative description from the document: what this segment/product is and what the company does in it (activities, offerings, end-markets). Near-verbatim. NO revenue, NO percentages, NO financial figures."
+        },
+        pageSource: { type: "STRING", description: "PDF page(s) for the description text." }
+    },
+    required: ["name", "description", "pageSource"]
+};
+
 const Task3Schema = {
     type: "OBJECT",
     properties: {
-        businessOverview: { type: "STRING", description: "Concise summary of the business (Include PDF Page #, e.g. 'PDF page 12')" },
+        businessOverview: {
+            type: "STRING",
+            description: "Concise near-verbatim summary of what the company does overall (activities, industries). Include PDF page #. No dividend/unrelated financial commentary."
+        },
+        segments: {
+            type: "ARRAY",
+            items: SegmentOrProductItemSchema,
+            description: "ONLY segments that appear in the disclosed segment revenue/mix breakdown. For each: explicit qualitative description of what that segment is / what the company does there. No revenue in description. Empty array if no segment breakdown."
+        },
+        products: {
+            type: "ARRAY",
+            items: SegmentOrProductItemSchema,
+            description: "ONLY products/categories/services that appear in a product-wise breakdown. Explicit qualitative description of what each product/service is. No revenue/percentages. Empty array if none."
+        },
+        // Legacy string fields kept optional for older model outputs; prefer segments/products arrays
         segmentInformation: {
             type: "STRING",
-            description: "List each business segment on a separate line with its qualitative description and revenue/percentage breakdown (Include PDF Page #). Ensure there is a newline character (\\n) between segments."
+            description: "Optional legacy field. Prefer 'segments' array. If used: one line per breakdown segment with qualitative description only (no revenue)."
         },
         productDescription: {
             type: "STRING",
-            description: "List each product/category/service on a separate line with its exact qualitative description. Do NOT include any revenue or percentage breakdown metrics. (Include PDF Page #). Ensure there is a newline character (\\n) between products."
+            description: "Optional legacy field. Prefer 'products' array. If used: one line per breakdown product with qualitative description only (no revenue)."
         },
-        outsourcingInformation: { type: "STRING", description: "Explicit outsourcing statements if manufacturing, or N/A (Include PDF Page #)" },
+        outsourcingInformation: { type: "STRING", description: "Explicit outsourcing statements if manufacturing; otherwise N/A (Include PDF Page #)" },
         granularityBasis: { type: "STRING", description: "State 'Segment-based' or 'Product-based' and why (Include PDF Page #)" },
         revenueConsistencyStatus: { type: "STRING", description: "State 'Matches Consolidated Revenue' or 'Does Not Match Consolidated Revenue' (Include PDF Page #)" },
-        financialTable: { type: "ARRAY", items: FinancialRowSchema, description: "Financial Data Table. Strictly include Consolidated Revenue, Segment Revenues, Product Revenues, and Consistency Check results." }
+        financialTable: {
+            type: "ARRAY",
+            items: FinancialRowSchema,
+            description: "ONLY: Consolidated Revenue, Standalone Revenue (if disclosed), Segment Revenue - [name] for breakdown segments, Product Revenue - [name] for product breakdown, Revenue Consistency Check Result. Never dividends, PAT, EBITDA, balance-sheet, cash-flow, or other statements."
+        },
+        organizationalEntities: {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    entityName: { type: "STRING" },
+                    relationship: { type: "STRING", description: "e.g. subsidiary, joint venture, associate, branch, reporting entity" },
+                    details: { type: "STRING", description: "What the entity does / role in group if stated" },
+                    pageSource: { type: "STRING" }
+                },
+                required: ["entityName", "relationship", "details", "pageSource"]
+            },
+            description: "Subsidiaries / org entities / group structure details relevant to understanding the business boundary. Empty array if none."
+        },
+        relatedEsgReports: {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    reportName: { type: "STRING", description: "Name of other ESG/sustainability/BRSR/CDP/TCFD report or disclosure referenced" },
+                    linkOrReference: { type: "STRING", description: "URL or document reference if provided, else N/A" },
+                    scopeNote: { type: "STRING", description: "Any scope/boundary note tied to that report" },
+                    pageSource: { type: "STRING" }
+                },
+                required: ["reportName", "linkOrReference", "scopeNote", "pageSource"]
+            },
+            description: "Other ESG-related reports, portals, or links the company mentions, including scope notes. Empty array if none."
+        }
     },
-    required: ["businessOverview", "segmentInformation", "productDescription", "outsourcingInformation", "granularityBasis", "revenueConsistencyStatus", "financialTable"]
+    required: ["businessOverview", "segments", "products", "outsourcingInformation", "granularityBasis", "revenueConsistencyStatus", "financialTable", "organizationalEntities", "relatedEsgReports"]
+};
+
+const Task4NoteSchema = {
+    type: "OBJECT",
+    properties: {
+        relatedKpi: {
+            type: "STRING",
+            description: "Which of OUR extraction KPIs this note applies to (e.g. GHG Scope 1, Total Water Consumption, Waste Generated, Energy, reporting boundary, materiality of environmental topic). Must map to Tasks 1–2 / env KPIs — not social/governance/general finance."
+        },
+        category: {
+            type: "STRING",
+            enum: ["missing_or_not_disclosed", "materiality_immaterial", "restatement", "assurance_limitation", "boundary_or_scope", "zero_value_disclosure", "other_esg_report_reference"],
+            description: "Type of auditor-mode finding for our KPI set."
+        },
+        note: {
+            type: "STRING",
+            description: "Near-verbatim extract explaining missing data, materiality, restatement, assurance limit, boundary/scope exclusion, zero-value environmental finding, or reference to another ESG report — only for our KPI universe."
+        },
+        pageSource: { type: "STRING" }
+    },
+    required: ["relatedKpi", "category", "note", "pageSource"]
 };
 
 const Task4Schema = {
@@ -2203,8 +2489,8 @@ const Task4Schema = {
     properties: {
         dataAvailabilityNotes: {
             type: "ARRAY",
-            items: { type: "STRING" },
-            description: "List of sentences specifically explaining why any environmental or financial data is missing, unavailable, not reported, or excluded from the reporting boundary. Do NOT include general statements about reporting scope, boundaries, frameworks, or standard business descriptions. If no data is missing or no reasons are given, return an empty array."
+            items: Task4NoteSchema,
+            description: "Findings ONLY for environmental KPIs we extract (GHG, water, waste, pollutants, energy, boundary/scope, materiality, restatements of those KPIs). Include materiality/immateriality and restatement notes for those KPIs. Exclude social/governance, dividends, PAT, financial auditor boilerplate."
         }
     },
     required: ["dataAvailabilityNotes"]
@@ -2243,17 +2529,159 @@ const VarianceTask1Schema = {
                     targetYearUnit: { type: "STRING" },
                     previousYearValue: { type: "STRING" },
                     previousYearUnit: { type: "STRING" },
-                    variancePercent: { type: "STRING", description: "Calculated percentage variance, e.g. 25.3%. If no variance, write '0%'." },
+                    variancePercent: { type: "STRING", description: "Calculated percentage variance, e.g. 25.3%. Only include rows where abs(variance) >= 20% or special new/discontinued cases." },
                     direction: { type: "STRING", enum: ["Increase", "Decrease", "N/A"] },
-                    reason: { type: "STRING", description: "Verbatim or near-verbatim reason explaining the change if variance is >20%. If variance is <=20% or no reason is provided, write 'N/A'." },
-                    pageSource: { type: "STRING", description: "PDF Page source where the values and reasons are mentioned" }
+                    reasonType: {
+                        type: "STRING",
+                        enum: ["direct", "related", "not_found"],
+                        description: "direct = document explicitly explains this KPI's YoY change; related = no direct sentence but related operational/capacity/boundary/energy/production/weather/acquisition reasons that plausibly explain the variance; not_found = nothing usable after full-document search."
+                    },
+                    reason: {
+                        type: "STRING",
+                        description: "Do NOT omit explanations. Prefer verbatim/near-verbatim direct reasons. If none, extract RELATED reasons (production volume, capacity, fuel mix, renewable share, boundary change, acquisitions/divestments, methodology, weather, efficiency projects, regulatory) that could explain this variance, and label as related. Only use 'No explanation found in document' when truly nothing relevant exists after exhaustive search."
+                    },
+                    pageSource: { type: "STRING", description: "PDF pages for values AND for the reason text (list all)." }
                 },
-                required: ["kpiName", "targetYearValue", "targetYearUnit", "previousYearValue", "previousYearUnit", "variancePercent", "direction", "reason", "pageSource"]
+                required: ["kpiName", "targetYearValue", "targetYearUnit", "previousYearValue", "previousYearUnit", "variancePercent", "direction", "reasonType", "reason", "pageSource"]
             }
         }
     },
     required: ["kpis"]
 };
+
+/**
+ * Universal schema for follow-up / free-form chat.
+ * All chat responses use structured JSON, then the app converts to Markdown.
+ */
+const FollowUpSchema = {
+    type: "OBJECT",
+    properties: {
+        answer: {
+            type: "STRING",
+            description: "Primary answer in clear prose. Cite PDF pages inline (e.g. PDF page 12). NEVER invent data not present in the documents or prior extraction context. If the user asks for data, be exhaustive and precise."
+        },
+        bulletPoints: {
+            type: "ARRAY",
+            items: { type: "STRING" },
+            description: "Optional key takeaways or list items. Empty array if none."
+        },
+        tables: {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    title: { type: "STRING", description: "Table title" },
+                    headers: {
+                        type: "ARRAY",
+                        items: { type: "STRING" },
+                        description: "Column headers in order"
+                    },
+                    rows: {
+                        type: "ARRAY",
+                        items: {
+                            type: "OBJECT",
+                            properties: {
+                                cells: {
+                                    type: "ARRAY",
+                                    items: { type: "STRING" },
+                                    description: "Cell values in the same order as headers"
+                                }
+                            },
+                            required: ["cells"]
+                        },
+                        description: "Data rows"
+                    }
+                },
+                required: ["title", "headers", "rows"]
+            },
+            description: "Optional structured tables for metrics/comparisons. Empty array if none."
+        },
+        citations: {
+            type: "ARRAY",
+            items: {
+                type: "OBJECT",
+                properties: {
+                    claim: { type: "STRING", description: "Claim or value stated" },
+                    pageSource: { type: "STRING", description: "PDF page source(s), e.g. PDF pages: 12, 45" }
+                },
+                required: ["claim", "pageSource"]
+            },
+            description: "Source citations for extracted claims/values. Empty array if none."
+        },
+        notFound: {
+            type: "STRING",
+            description: "If any requested information is unavailable in the documents, explain what was not found. Otherwise write 'N/A'."
+        }
+    },
+    required: ["answer", "bulletPoints", "tables", "citations", "notFound"]
+};
+
+function formatFollowUpToMarkdown(data) {
+    if (!data) return "No data returned.";
+    let md = "";
+
+    if (data.answer) {
+        md += data.answer.trim();
+    }
+
+    if (data.bulletPoints && data.bulletPoints.length > 0) {
+        md += (md ? "\n\n" : "") + data.bulletPoints.map(b => `*   ${b}`).join("\n");
+    }
+
+    if (data.tables && data.tables.length > 0) {
+        data.tables.forEach(t => {
+            if (!t.headers || !t.rows) return;
+            md += (md ? "\n\n" : "") + `**${t.title || "Table"}**\n\n`;
+            md += `| ${t.headers.join(" | ")} |\n`;
+            md += `| ${t.headers.map(() => "---").join(" | ")} |\n`;
+            t.rows.forEach(r => {
+                const cells = (r.cells || []).map(c => (c == null || c === "" ? "N/A" : String(c).replace(/\|/g, "\\|")));
+                // Pad/truncate to header length
+                while (cells.length < t.headers.length) cells.push("N/A");
+                md += `| ${cells.slice(0, t.headers.length).join(" | ")} |\n`;
+            });
+        });
+    }
+
+    if (data.citations && data.citations.length > 0) {
+        md += (md ? "\n\n" : "") + "**Citations**\n\n";
+        data.citations.forEach(c => {
+            md += `*   ${c.claim || "N/A"} — *${c.pageSource || "N/A"}*\n`;
+        });
+    }
+
+    if (data.notFound && data.notFound.trim() && data.notFound.trim().toUpperCase() !== "N/A") {
+        md += (md ? "\n\n" : "") + `**Not found / unavailable:** ${data.notFound.trim()}`;
+    }
+
+    return md || "No data returned.";
+}
+
+/**
+ * Parse model JSON (optionally fenced) into Markdown via formatter.
+ * Falls back to raw text if parse fails.
+ */
+function parseStructuredResponseToMarkdown(responseText, formatter) {
+    if (!formatter || !responseText) return responseText || "";
+    try {
+        let cleanText = responseText.trim();
+        if (cleanText.startsWith("```")) {
+            cleanText = cleanText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+        }
+        let parsedData;
+        try {
+            parsedData = JSON.parse(cleanText);
+        } catch (firstErr) {
+            console.warn("Standard JSON parsing failed, attempting repair:", firstErr);
+            const repairedText = repairTruncatedJson(cleanText);
+            parsedData = JSON.parse(repairedText);
+        }
+        return formatter(parsedData);
+    } catch (parseErr) {
+        console.warn("Failed to parse structured JSON response, falling back to raw text:", parseErr);
+        return responseText;
+    }
+}
 
 function repairTruncatedJson(jsonStr) {
     jsonStr = jsonStr.trim();
@@ -2330,6 +2758,87 @@ function repairTruncatedJson(jsonStr) {
 }
 
 // ── Helper functions to convert JSON output to Markdown ──────────
+
+/** Strip collapsible coverage blocks (and marked exclude regions) from full-response copy. */
+function isTaskExcludedFromCopy(taskName) {
+    const n = (taskName || '').toLowerCase();
+    // Task 4 (auditor / missing info) and Task 4B (variance) — show in UI, omit from full copy
+    if (n.includes('variance')) return true;
+    if (n.includes('task 4b')) return true;
+    if (n.includes('task 4') || n.includes('missing information') || n.includes('auditor mode')) return true;
+    return false;
+}
+
+function stripExcludedFromCopy(text) {
+    if (!text) return '';
+    let out = text
+        .replace(/<!--EXCLUDE_FROM_COPY_START-->[\s\S]*?<!--EXCLUDE_FROM_COPY_END-->/gi, '')
+        .replace(/<details[^>]*metric-coverage-collapsible[^>]*>[\s\S]*?<\/details>/gi, '');
+    // Also strip by heading if markers missing (defensive)
+    out = out.replace(
+        /(^|\n)---\n\n## ⚡[^\n]*(?:Task 4|Missing Information|Auditor Mode|Variance)[^\n]*\n[\s\S]*?(?=(?:\n---\n\n## ⚡)|\s*$)/gi,
+        '\n'
+    );
+    out = out.replace(
+        /(^|\n)## ⚡[^\n]*(?:Task 4|Missing Information|Auditor Mode|Variance)[^\n]*\n[\s\S]*?(?=(?:\n---\n\n## ⚡)|\s*$)/gi,
+        '\n'
+    );
+    // Task 3 optional sections — exclude from copy even if markers stripped by markdown renderer
+    out = out.replace(
+        /\*\*Organizational Entities\s*\/\s*Subsidiaries\*\*[\s\S]*?(?=(\n\*\*[^*\n]+?\*\*)|\n## |\n---|\s*$)/gi,
+        ''
+    );
+    out = out.replace(
+        /\*\*Related ESG Reports\s*\/\s*Links\s*\/\s*Scope Notes\*\*[\s\S]*?(?=(\n\*\*[^*\n]+?\*\*)|\n## |\n---|\s*$)/gi,
+        ''
+    );
+    return out.replace(/\n{3,}/g, '\n\n').trim();
+}
+
+function formatMetricCoverageToMarkdown(coverage) {
+    if (!coverage || !Array.isArray(coverage) || coverage.length === 0) return '';
+    // Collapsible in UI; excluded from "copy full response"
+    let md = `\n\n<!--EXCLUDE_FROM_COPY_START-->\n`;
+    md += `<details class="metric-coverage-collapsible">\n`;
+    md += `<summary><strong>Metric Coverage Checklist</strong> <span class="text-gray-500 text-sm">(click to expand — not included when copying full response)</span></summary>\n\n`;
+    md += `| Metric | Status | Notes |\n`;
+    md += `| --- | --- | --- |\n`;
+    coverage.forEach(c => {
+        const notes = (c.notes || 'N/A').replace(/\|/g, '\\|');
+        md += `| ${c.metricName || 'N/A'} | ${c.status || 'N/A'} | ${notes} |\n`;
+    });
+    md += `\n</details>\n<!--EXCLUDE_FROM_COPY_END-->\n`;
+    return md;
+}
+
+function formatEnvTablesToMarkdown(data, tables, emptyMessage) {
+    if (!data) return "No data returned.";
+    let md = "";
+    const headers = ["Metric", "Value", "Unit", "Page Source (PDF#)", "Section", "Reporting Boundary"];
+    let hasAnyData = false;
+
+    tables.forEach((t) => {
+        const rows = data[t.key];
+        if (rows && rows.length > 0) {
+            hasAnyData = true;
+            if (md) md += "\n\n";
+            md += `**${t.title}**\n\n`;
+            md += `| ${headers.join(" | ")} |\n`;
+            md += `| ${headers.map(() => "---").join(" | ")} |\n`;
+            rows.forEach(r => {
+                md += `| ${r.metric || 'N/A'} | ${r.value || 'N/A'} | ${r.unit || 'N/A'} | ${r.pageSource || 'N/A'} | ${r.section || 'N/A'} | ${r.reportingBoundary || 'N/A'} |\n`;
+            });
+        }
+    });
+
+    if (!hasAnyData) {
+        md = emptyMessage;
+    }
+
+    md += formatMetricCoverageToMarkdown(data.metricCoverage);
+    return md;
+}
+
 function formatTask1ToMarkdown(data) {
     if (!data) return "No data returned.";
     return `*   **Company Name:** ${data.companyName || 'N/A'}
@@ -2350,12 +2859,7 @@ function formatTask1ToMarkdown(data) {
 }
 
 function formatTask2ToMarkdown(data) {
-    if (!data) return "No data returned.";
-
-    let md = "";
-    const headers = ["Metric", "Value", "Unit", "Page Source (PDF#)", "Section", "Reporting Boundary"];
-
-    const tables = [
+    return formatEnvTablesToMarkdown(data, [
         { title: "GHG Emissions Data", key: "ghgTable" },
         { title: "Water Data", key: "waterTable" },
         { title: "Water Data in Water-Stressed Regions", key: "waterStressedTable" },
@@ -2363,132 +2867,44 @@ function formatTask2ToMarkdown(data) {
         { title: "Waste Disposal & Treatment Data", key: "wasteDisposalTable" },
         { title: "Air & Water Pollutants Data", key: "pollutantsTable" },
         { title: "Energy Data", key: "energyTable" }
-    ];
-
-    let hasAnyData = false;
-
-    tables.forEach((t, index) => {
-        const rows = data[t.key];
-        if (rows && rows.length > 0) {
-            hasAnyData = true;
-            if (index > 0 && md) md += "\n\n";
-            md += `**${t.title}**\n\n`;
-            md += `| ${headers.join(" | ")} |\n`;
-            md += `| ${headers.map(() => "---").join(" | ")} |\n`;
-            rows.forEach(r => {
-                md += `| ${r.metric || 'N/A'} | ${r.value || 'N/A'} | ${r.unit || 'N/A'} | ${r.pageSource || 'N/A'} | ${r.section || 'N/A'} | ${r.reportingBoundary || 'N/A'} |\n`;
-            });
-        }
-    });
-
-    if (!hasAnyData) {
-        md = "No environmental data points found in the document.";
-    }
-
-    return md;
+    ], "No environmental data points found in the document.");
 }
 
 function formatTask2AToMarkdown(data) {
-    if (!data) return "No data returned.";
-
-    let md = "";
-    const headers = ["Metric", "Value", "Unit", "Page Source (PDF#)", "Section", "Reporting Boundary"];
-
-    const tables = [
+    return formatEnvTablesToMarkdown(data, [
         { title: "GHG Emissions Data", key: "ghgTable" }
-    ];
-
-    let hasAnyData = false;
-
-    tables.forEach((t, index) => {
-        const rows = data[t.key];
-        if (rows && rows.length > 0) {
-            hasAnyData = true;
-            if (index > 0 && md) md += "\n\n";
-            md += `**${t.title}**\n\n`;
-            md += `| ${headers.join(" | ")} |\n`;
-            md += `| ${headers.map(() => "---").join(" | ")} |\n`;
-            rows.forEach(r => {
-                md += `| ${r.metric || 'N/A'} | ${r.value || 'N/A'} | ${r.unit || 'N/A'} | ${r.pageSource || 'N/A'} | ${r.section || 'N/A'} | ${r.reportingBoundary || 'N/A'} |\n`;
-            });
-        }
-    });
-
-    if (!hasAnyData) {
-        md = "No GHG emissions data points found in the document.";
-    }
-
-    return md;
+    ], "No GHG emissions data points found in the document.");
 }
 
+function formatTask2WaterToMarkdown(data) {
+    return formatEnvTablesToMarkdown(data, [
+        { title: "Water Data", key: "waterTable" },
+        { title: "Water Data in Water-Stressed Regions", key: "waterStressedTable" }
+    ], "No water data points found in the document.");
+}
+
+function formatTask2WasteToMarkdown(data) {
+    return formatEnvTablesToMarkdown(data, [
+        { title: "Waste Generation Data", key: "wasteGenerationTable" },
+        { title: "Waste Disposal & Treatment Data", key: "wasteDisposalTable" }
+    ], "No waste data points found in the document.");
+}
+
+/** Legacy combined water+waste formatter for older prompts. */
 function formatTask2BToMarkdown(data) {
-    if (!data) return "No data returned.";
-
-    let md = "";
-    const headers = ["Metric", "Value", "Unit", "Page Source (PDF#)", "Section", "Reporting Boundary"];
-
-    const tables = [
+    return formatEnvTablesToMarkdown(data, [
         { title: "Water Data", key: "waterTable" },
         { title: "Water Data in Water-Stressed Regions", key: "waterStressedTable" },
         { title: "Waste Generation Data", key: "wasteGenerationTable" },
         { title: "Waste Disposal & Treatment Data", key: "wasteDisposalTable" }
-    ];
-
-    let hasAnyData = false;
-
-    tables.forEach((t, index) => {
-        const rows = data[t.key];
-        if (rows && rows.length > 0) {
-            hasAnyData = true;
-            if (md) md += "\n\n";
-            md += `**${t.title}**\n\n`;
-            md += `| ${headers.join(" | ")} |\n`;
-            md += `| ${headers.map(() => "---").join(" | ")} |\n`;
-            rows.forEach(r => {
-                md += `| ${r.metric || 'N/A'} | ${r.value || 'N/A'} | ${r.unit || 'N/A'} | ${r.pageSource || 'N/A'} | ${r.section || 'N/A'} | ${r.reportingBoundary || 'N/A'} |\n`;
-            });
-        }
-    });
-
-    if (!hasAnyData) {
-        md = "No water or waste data points found in the document.";
-    }
-
-    return md;
+    ], "No water or waste data points found in the document.");
 }
 
 function formatTask2CToMarkdown(data) {
-    if (!data) return "No data returned.";
-
-    let md = "";
-    const headers = ["Metric", "Value", "Unit", "Page Source (PDF#)", "Section", "Reporting Boundary"];
-
-    const tables = [
+    return formatEnvTablesToMarkdown(data, [
         { title: "Air & Water Pollutants Data", key: "pollutantsTable" },
         { title: "Energy Data", key: "energyTable" }
-    ];
-
-    let hasAnyData = false;
-
-    tables.forEach((t, index) => {
-        const rows = data[t.key];
-        if (rows && rows.length > 0) {
-            hasAnyData = true;
-            if (md) md += "\n\n";
-            md += `**${t.title}**\n\n`;
-            md += `| ${headers.join(" | ")} |\n`;
-            md += `| ${headers.map(() => "---").join(" | ")} |\n`;
-            rows.forEach(r => {
-                md += `| ${r.metric || 'N/A'} | ${r.value || 'N/A'} | ${r.unit || 'N/A'} | ${r.pageSource || 'N/A'} | ${r.section || 'N/A'} | ${r.reportingBoundary || 'N/A'} |\n`;
-            });
-        }
-    });
-
-    if (!hasAnyData) {
-        md = "No pollutants or energy data points found in the document.";
-    }
-
-    return md;
+    ], "No pollutants or energy data points found in the document.");
 }
 
 function formatTask3ToMarkdown(data) {
@@ -2497,15 +2913,35 @@ function formatTask3ToMarkdown(data) {
     let md = `### 🏢 Business & Segment Overview\n\n`;
 
     md += `**Business Overview**\n${data.businessOverview || 'N/A'}\n\n`;
-    md += `**Segment Information/Description**\n${data.segmentInformation || 'N/A'}\n\n`;
-    md += `**Product/Service Description**\n${data.productDescription || 'N/A'}\n\n`;
+
+    // Prefer structured segments/products (qualitative only, breakdown items only)
+    if (data.segments && Array.isArray(data.segments) && data.segments.length > 0) {
+        md += `**Segment Information/Description** *(qualitative — breakdown segments only; no revenue)*\n\n`;
+        data.segments.forEach(s => {
+            md += `*   **${s.name || 'N/A'}** — ${s.description || 'N/A'} *(${s.pageSource || 'N/A'})*\n`;
+        });
+        md += `\n`;
+    } else {
+        md += `**Segment Information/Description**\n${data.segmentInformation || 'N/A'}\n\n`;
+    }
+
+    if (data.products && Array.isArray(data.products) && data.products.length > 0) {
+        md += `**Product/Service Description** *(qualitative — breakdown products only; no revenue)*\n\n`;
+        data.products.forEach(p => {
+            md += `*   **${p.name || 'N/A'}** — ${p.description || 'N/A'} *(${p.pageSource || 'N/A'})*\n`;
+        });
+        md += `\n`;
+    } else {
+        md += `**Product/Service Description**\n${data.productDescription || 'N/A'}\n\n`;
+    }
+
     md += `**Outsourcing Information**\n${data.outsourcingInformation || 'N/A'}\n\n`;
     md += `**Granularity Basis for Mapping**\n${data.granularityBasis || 'N/A'}\n\n`;
     md += `**Revenue Consistency Status**\n${data.revenueConsistencyStatus || 'N/A'}`;
 
     if (data.financialTable && data.financialTable.length > 0) {
         const headers = ["Metric", "Value", "Unit / Currency", "Page Source (PDF#)", "Section"];
-        md += `\n\n**Financial Data Table**\n\n`;
+        md += `\n\n**Financial Data Table** *(revenue only: consolidated / standalone / segment / product)*\n\n`;
         md += `| ${headers.join(" | ")} |\n`;
         md += `| ${headers.map(() => "---").join(" | ")} |\n`;
         data.financialTable.forEach(r => {
@@ -2515,17 +2951,48 @@ function formatTask3ToMarkdown(data) {
         md += `\n\nNo financial data points found.`;
     }
 
+    // Shown in UI but omitted from "copy full response"
+    if (data.organizationalEntities && data.organizationalEntities.length > 0) {
+        md += `\n\n<!--EXCLUDE_FROM_COPY_START-->\n**Organizational Entities / Subsidiaries**\n\n`;
+        md += `| Entity | Relationship | Details | Page Source |\n| --- | --- | --- | --- |\n`;
+        data.organizationalEntities.forEach(e => {
+            md += `| ${e.entityName || 'N/A'} | ${e.relationship || 'N/A'} | ${(e.details || 'N/A').replace(/\|/g, '\\|')} | ${e.pageSource || 'N/A'} |\n`;
+        });
+        md += `\n<!--EXCLUDE_FROM_COPY_END-->\n`;
+    }
+
+    if (data.relatedEsgReports && data.relatedEsgReports.length > 0) {
+        md += `\n\n<!--EXCLUDE_FROM_COPY_START-->\n**Related ESG Reports / Links / Scope Notes**\n\n`;
+        md += `| Report | Link / Reference | Scope Note | Page Source |\n| --- | --- | --- | --- |\n`;
+        data.relatedEsgReports.forEach(r => {
+            md += `| ${r.reportName || 'N/A'} | ${(r.linkOrReference || 'N/A').replace(/\|/g, '\\|')} | ${(r.scopeNote || 'N/A').replace(/\|/g, '\\|')} | ${r.pageSource || 'N/A'} |\n`;
+        });
+        md += `\n<!--EXCLUDE_FROM_COPY_END-->\n`;
+    }
+
     return md;
 }
 
 function formatTask4ToMarkdown(data) {
     if (!data) return "No data returned.";
 
+    // Old list style (no table)
     let md = `**Data Availability Notes**\n\n`;
 
     if (data.dataAvailabilityNotes && data.dataAvailabilityNotes.length > 0) {
-        data.dataAvailabilityNotes.forEach(note => {
-            md += `*   ${note}\n`;
+        data.dataAvailabilityNotes.forEach(item => {
+            if (typeof item === 'string') {
+                md += `*   ${item}\n`;
+            } else {
+                // Structured note → single bullet (not a table)
+                const parts = [
+                    item.relatedKpi ? `[${item.relatedKpi}]` : null,
+                    item.category ? `(${item.category})` : null,
+                    item.note || null,
+                    item.pageSource ? `(${item.pageSource})` : null
+                ].filter(Boolean);
+                md += `*   ${parts.join(' ')}\n`;
+            }
         });
     } else {
         md += `No data availability notes recorded.`;
@@ -2558,12 +3025,13 @@ function formatTask5ToMarkdown(data) {
 function formatVarianceTask1ToMarkdown(data) {
     if (!data || !data.kpis || data.kpis.length === 0) return "No KPIs identified.";
     let md = "**ESG KPI Variance Analysis:**\n\n";
-    md += "| KPI Name | Target Year Value | Previous Year Value | Variance (%) | Direction | Explanation / Reason | Page Source (PDF#) |\n";
-    md += "| --- | --- | --- | --- | --- | --- | --- |\n";
+    md += "| KPI Name | Target Year Value | Previous Year Value | Variance (%) | Direction | Reason Type | Explanation / Reason | Page Source (PDF#) |\n";
+    md += "| --- | --- | --- | --- | --- | --- | --- | --- |\n";
     data.kpis.forEach(k => {
         let reasonClean = k.reason ? k.reason : 'N/A';
-        reasonClean = reasonClean.replace(/\|/g, '\\|');
-        md += `| ${k.kpiName} | ${k.targetYearValue} ${k.targetYearUnit} | ${k.previousYearValue} ${k.previousYearUnit} | ${k.variancePercent} | ${k.direction} | ${reasonClean} | ${k.pageSource} |\n`;
+        reasonClean = reasonClean.replace(/\|/g, '\\|').replace(/\n/g, '<br>');
+        const rType = k.reasonType || 'N/A';
+        md += `| ${k.kpiName} | ${k.targetYearValue} ${k.targetYearUnit} | ${k.previousYearValue} ${k.previousYearUnit} | ${k.variancePercent} | ${k.direction} | ${rType} | ${reasonClean} | ${k.pageSource} |\n`;
     });
     return md;
 }
@@ -2582,10 +3050,30 @@ function getTaskSchemaAndFormatter(taskName) {
     if (name.includes("task 2a") || name.includes("ghg emissions")) {
         return { schema: Task2ASchema, formatter: formatTask2AToMarkdown };
     }
-    if (name.includes("task 2b") || name.includes("water & waste") || name.includes("water and waste")) {
+    // Legacy combined water+waste prompts
+    if (name.includes("water & waste") || name.includes("water and waste")) {
         return { schema: Task2BSchema, formatter: formatTask2BToMarkdown };
     }
-    if (name.includes("task 2c") || name.includes("pollutants & energy") || name.includes("pollutants and energy")) {
+    // Water-only (Task 2B after split)
+    if (name.includes("task 2b") || (name.includes("water data") && !name.includes("waste") && !name.includes("pollutant"))) {
+        return { schema: Task2WaterSchema, formatter: formatTask2WaterToMarkdown };
+    }
+    // Waste-only (Task 2C after renumbering)
+    if (
+        (name.includes("task 2c") && name.includes("waste")) ||
+        (name.includes("waste data") && !name.includes("water")) ||
+        name.includes("waste generation") ||
+        name.includes("waste disposal")
+    ) {
+        return { schema: Task2WasteSchema, formatter: formatTask2WasteToMarkdown };
+    }
+    // Pollutants & Energy (Task 2D, or legacy Task 2C pollutants)
+    if (
+        name.includes("task 2d") ||
+        name.includes("pollutants & energy") ||
+        name.includes("pollutants and energy") ||
+        (name.includes("task 2c") && (name.includes("pollutant") || name.includes("energy")))
+    ) {
         return { schema: Task2CSchema, formatter: formatTask2CToMarkdown };
     }
     if (name.includes("task 2") || name.includes("granular environmental") || name.includes("environmental data")) {
@@ -3096,6 +3584,16 @@ async function runAllSequentialTasks() {
     }
 }
 
-// No-op (initialization removed)
+
+// Expose key helpers for optional local/dev use (session only)
+window.addAPIKeysFromString = addAPIKeysFromString;
+window.getAPIKeyCount = () => API_KEYS.length;
+
+// Initialize chat last — after all consts/helpers exist (avoids TDZ crashes that break Send)
+try {
+    initializeChat();
+} catch (e) {
+    console.error('initializeChat failed:', e);
+}
 
 

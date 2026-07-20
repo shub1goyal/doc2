@@ -1596,11 +1596,9 @@ async function handleSendMessage(event) {
                 try {
                     const countResult = await model.countTokens({
                         contents: [{ role: 'user', parts: safeContentParts }]
-                        // Note: systemInstruction is intentionally omitted — the
-                        // countTokens endpoint rejects it with 400 "invalid argument".
                     });
 
-                    const count = countResult.totalTokens;
+                    const count = countResult.totalTokens || 0;
                     console.log(`Input Token Count: ${count}`);
 
                     // Update the UI with input tokens immediately
@@ -1610,7 +1608,14 @@ async function handleSendMessage(event) {
                         render();
                     }
                 } catch (tokenError) {
-                    console.error('Error counting tokens:', tokenError);
+                    console.warn('Non-fatal error counting tokens, fallback to character estimation:', tokenError);
+                    const approxChars = JSON.stringify(safeContentParts).length;
+                    const estimatedCount = Math.max(1, Math.round(approxChars / 4));
+                    const modelMessageIndex = messages.findIndex(msg => msg.id === responseId);
+                    if (modelMessageIndex !== -1) {
+                        messages[modelMessageIndex].tokenCounts.input = estimatedCount;
+                        render();
+                    }
                 }
 
                 result = await chatSession.sendMessageStream(safeContentParts);
@@ -1618,8 +1623,29 @@ async function handleSendMessage(event) {
             } catch (error) {
                 lastError = error;
                 const errMsg = (error.message || "").toLowerCase();
+                const isModelNotFoundError = errMsg.includes("404") || errMsg.includes("not found") || errMsg.includes("not available");
+                const isFileUriError = (errMsg.includes("400") || errMsg.includes("invalid argument")) && (errMsg.includes("file") || errMsg.includes("uri"));
                 const isKeyError = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403");
                 const isServiceError = errMsg.includes("503") || errMsg.includes("500") || errMsg.includes("504") || errMsg.includes("overloaded") || errMsg.includes("overload") || errMsg.includes("demand") || errMsg.includes("unavailable") || errMsg.includes("deadline") || errMsg.includes("timeout") || errMsg.includes("internal error");
+
+                if (isModelNotFoundError) {
+                    attempt++;
+                    console.warn(`Model ${selectedModel} returned 404 / not available. Falling back to gemini-2.5-flash...`);
+                    showToast(`Model ${selectedModel} is not available. Falling back to Gemini 2.5 Flash.`, 'warning');
+                    if (modelSelect) modelSelect.value = 'gemini-2.5-flash';
+                    chatSession = null;
+                    if (attempt >= maxAttempts) throw error;
+                    continue;
+                }
+
+                if (isFileUriError) {
+                    attempt++;
+                    console.warn(`400 File URI error detected. Invalidation of cached file metadata to force fresh upload...`);
+                    uploadedFileMetadata = [];
+                    chatSession = null;
+                    if (attempt >= maxAttempts) throw error;
+                    continue;
+                }
 
                 if (isServiceError) {
                     attempt++;
@@ -3425,16 +3451,16 @@ async function runAllSequentialTasks() {
                         try {
                             const countResult = await activeModel.countTokens({
                                 contents: safeContents
-                                // Note: systemInstruction intentionally omitted \u2014
-                                // countTokens rejects it with 400 "invalid argument".
                             });
-                            taskInputTokens = countResult.totalTokens;
-                            let modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
-                            if (modelMessageIndex !== -1) {
-                                messages[modelMessageIndex].tokenCounts.input = completedTasksInputTokens + taskInputTokens;
-                            }
+                            taskInputTokens = countResult.totalTokens || 0;
                         } catch (e) {
-                            console.error('Error counting input tokens for task:', e);
+                            console.warn('Non-fatal error counting input tokens for task, fallback to character estimation:', e);
+                            const approxChars = JSON.stringify(safeContents).length;
+                            taskInputTokens = Math.max(1, Math.round(approxChars / 4));
+                        }
+                        let modelMessageIndex = messages.findIndex(msg => msg.id === consolidatedResponseId);
+                        if (modelMessageIndex !== -1) {
+                            messages[modelMessageIndex].tokenCounts.input = completedTasksInputTokens + taskInputTokens;
                         }
 
                         result = await activeModel.generateContentStream({
@@ -3448,8 +3474,27 @@ async function runAllSequentialTasks() {
                     } catch (streamError) {
                         lastError = streamError;
                         const errMsg = (streamError.message || "").toLowerCase();
+                        const isModelNotFoundError = errMsg.includes("404") || errMsg.includes("not found") || errMsg.includes("not available");
+                        const isFileUriError = (errMsg.includes("400") || errMsg.includes("invalid argument")) && (errMsg.includes("file") || errMsg.includes("uri"));
                         const isKeyError = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403");
                         const isServiceError = errMsg.includes("503") || errMsg.includes("500") || errMsg.includes("504") || errMsg.includes("overloaded") || errMsg.includes("overload") || errMsg.includes("demand") || errMsg.includes("unavailable") || errMsg.includes("deadline") || errMsg.includes("timeout") || errMsg.includes("internal error");
+
+                        if (isModelNotFoundError) {
+                            attempt++;
+                            console.warn(`Task ${task.name} failed because model ${selectedModel} returned 404 / not available. Auto-falling back to gemini-2.5-flash...`);
+                            showToast(`Model ${selectedModel} is not available. Falling back to Gemini 2.5 Flash.`, 'warning');
+                            if (modelSelect) modelSelect.value = 'gemini-2.5-flash';
+                            if (attempt >= maxAttempts) throw streamError;
+                            continue;
+                        }
+
+                        if (isFileUriError) {
+                            attempt++;
+                            console.warn(`Task ${task.name} failed with 400 File URI error. Clearing cached file metadata to force re-upload...`);
+                            uploadedFileMetadata = [];
+                            if (attempt >= maxAttempts) throw streamError;
+                            continue;
+                        }
 
                         if (isServiceError) {
                             attempt++;

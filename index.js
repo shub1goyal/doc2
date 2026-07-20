@@ -52,7 +52,9 @@ function buildThinkingConfig(modelName) {
     if (m.includes('gemini-3')) {
         return { thinkingLevel: 'high' };
     }
-    return { thinkingBudget: 24576 };
+    // Older models (2.0, 1.5, etc.) do not support thinkingConfig at all.
+    // Returning null signals callers to omit the field entirely.
+    return null;
 }
 
 /** Merge extra comma-separated keys into the pool (session only; no localStorage). */
@@ -1568,16 +1570,19 @@ async function handleSendMessage(event) {
                     const thinkingConfig = buildThinkingConfig(selectedModel);
 
                     // All chat/follow-up responses use structured JSON (converted to Markdown in-app)
+                    const chatGenConfig = {
+                        temperature: 0.2,
+                        maxOutputTokens: 64000,
+                        responseMimeType: "application/json",
+                        responseSchema: FollowUpSchema
+                    };
+                    if (thinkingConfig) {
+                        chatGenConfig.thinkingConfig = thinkingConfig;
+                    }
                     chatSession = model.startChat({
                         history: history,
                         safetySettings,
-                        generationConfig: {
-                            temperature: 0.2,
-                            maxOutputTokens: 64000,
-                            thinkingConfig: thinkingConfig,
-                            responseMimeType: "application/json",
-                            responseSchema: FollowUpSchema
-                        },
+                        generationConfig: chatGenConfig,
                         systemInstruction: SYSTEM_INSTRUCTION
                     });
                 }
@@ -1592,20 +1597,20 @@ async function handleSendMessage(event) {
                     throw new Error('Nothing to send: message has no text or file parts.');
                 }
 
-                // Count Input Tokens
+                // Count Input Tokens (strip fileData parts — countTokens rejects them with 400)
                 try {
-                    const countResult = await model.countTokens({
-                        contents: [{ role: 'user', parts: safeContentParts }]
-                    });
-
-                    const count = countResult.totalTokens || 0;
-                    console.log(`Input Token Count: ${count}`);
-
-                    // Update the UI with input tokens immediately
-                    const modelMessageIndex = messages.findIndex(msg => msg.id === responseId);
-                    if (modelMessageIndex !== -1) {
-                        messages[modelMessageIndex].tokenCounts.input = count;
-                        render();
+                    const textOnlyParts = safeContentParts.filter(p => p.text != null);
+                    if (textOnlyParts.length > 0) {
+                        const countResult = await model.countTokens({
+                            contents: [{ role: 'user', parts: textOnlyParts }]
+                        });
+                        const count = countResult.totalTokens || 0;
+                        console.log(`Input Token Count: ${count}`);
+                        const modelMessageIndex = messages.findIndex(msg => msg.id === responseId);
+                        if (modelMessageIndex !== -1) {
+                            messages[modelMessageIndex].tokenCounts.input = count;
+                            render();
+                        }
                     }
                 } catch (tokenError) {
                     console.warn('Non-fatal error counting tokens, fallback to character estimation:', tokenError);
@@ -1624,24 +1629,27 @@ async function handleSendMessage(event) {
                 lastError = error;
                 const errMsg = (error.message || "").toLowerCase();
                 const isModelNotFoundError = errMsg.includes("404") || errMsg.includes("not found") || errMsg.includes("not available");
-                const isFileUriError = (errMsg.includes("400") || errMsg.includes("invalid argument")) && (errMsg.includes("file") || errMsg.includes("uri"));
+                const isBadRequestError = errMsg.includes("400") || errMsg.includes("invalid argument") || errMsg.includes("bad request");
                 const isKeyError = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403");
                 const isServiceError = errMsg.includes("503") || errMsg.includes("500") || errMsg.includes("504") || errMsg.includes("overloaded") || errMsg.includes("overload") || errMsg.includes("demand") || errMsg.includes("unavailable") || errMsg.includes("deadline") || errMsg.includes("timeout") || errMsg.includes("internal error");
 
                 if (isModelNotFoundError) {
                     attempt++;
-                    console.warn(`Model ${selectedModel} returned 404 / not available. Falling back to gemini-2.5-flash...`);
-                    showToast(`Model ${selectedModel} is not available. Falling back to Gemini 2.5 Flash.`, 'warning');
+                    console.warn(`Model returned 404 / not available. Rotating key and falling back to gemini-2.5-flash...`);
+                    showToast(`Model is not available with current key. Rotating key & falling back to Gemini 2.5 Flash.`, 'warning');
                     if (modelSelect) modelSelect.value = 'gemini-2.5-flash';
+                    if (API_KEYS.length > 1) rotateAPIKey();
+                    uploadedFileMetadata = [];
                     chatSession = null;
                     if (attempt >= maxAttempts) throw error;
                     continue;
                 }
 
-                if (isFileUriError) {
+                if (isBadRequestError) {
                     attempt++;
-                    console.warn(`400 File URI error detected. Invalidation of cached file metadata to force fresh upload...`);
+                    console.warn(`400 Bad Request / Invalid Argument detected. Clearing file cache, rotating key, and retrying...`);
                     uploadedFileMetadata = [];
+                    if (API_KEYS.length > 1) rotateAPIKey();
                     chatSession = null;
                     if (attempt >= maxAttempts) throw error;
                     continue;
@@ -3268,22 +3276,17 @@ async function runAllSequentialTasks() {
                 }
 
                 // Determine active model name and configure thinking budget dynamically
-                const activeModelLower = selectedModel.toLowerCase();
-                const thinkingConfig = {};
-                if (activeModelLower.includes("gemini-2.5")) {
-                    thinkingConfig.thinkingBudget = -1; // Max/dynamic thinking for 2.5
-                } else if (activeModelLower.includes("gemini-3")) {
-                    thinkingConfig.thinkingLevel = "high"; // Max thinking level for 3/3.5
-                } else {
-                    thinkingConfig.thinkingBudget = -1; // Fallback
-                }
+                const thinkingConfig = buildThinkingConfig(selectedModel);
 
                 // Set generation configuration parameters
                 const genConfig = {
                     temperature: schema ? 0.1 : 0.4,
-                    maxOutputTokens: 64000,
-                    thinkingConfig: thinkingConfig
+                    maxOutputTokens: 64000
                 };
+                // Only add thinkingConfig if the model supports it (null = unsupported)
+                if (thinkingConfig) {
+                    genConfig.thinkingConfig = thinkingConfig;
+                }
 
                 if (schema) {
                     genConfig.responseMimeType = "application/json";
@@ -3446,13 +3449,19 @@ async function runAllSequentialTasks() {
                             return merged;
                         })();
 
-                        // Count input tokens and add to consolidated count
+                        // Count input tokens (strip fileData — countTokens rejects file URIs with 400)
                         let taskInputTokens = 0;
                         try {
-                            const countResult = await activeModel.countTokens({
-                                contents: safeContents
-                            });
-                            taskInputTokens = countResult.totalTokens || 0;
+                            const textOnlyContents = safeContents.map(c => ({
+                                role: c.role,
+                                parts: c.parts.filter(p => p.text != null)
+                            })).filter(c => c.parts.length > 0);
+                            if (textOnlyContents.length > 0) {
+                                const countResult = await activeModel.countTokens({
+                                    contents: textOnlyContents
+                                });
+                                taskInputTokens = countResult.totalTokens || 0;
+                            }
                         } catch (e) {
                             console.warn('Non-fatal error counting input tokens for task, fallback to character estimation:', e);
                             const approxChars = JSON.stringify(safeContents).length;
@@ -3475,23 +3484,26 @@ async function runAllSequentialTasks() {
                         lastError = streamError;
                         const errMsg = (streamError.message || "").toLowerCase();
                         const isModelNotFoundError = errMsg.includes("404") || errMsg.includes("not found") || errMsg.includes("not available");
-                        const isFileUriError = (errMsg.includes("400") || errMsg.includes("invalid argument")) && (errMsg.includes("file") || errMsg.includes("uri"));
+                        const isBadRequestError = errMsg.includes("400") || errMsg.includes("invalid argument") || errMsg.includes("bad request");
                         const isKeyError = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403");
                         const isServiceError = errMsg.includes("503") || errMsg.includes("500") || errMsg.includes("504") || errMsg.includes("overloaded") || errMsg.includes("overload") || errMsg.includes("demand") || errMsg.includes("unavailable") || errMsg.includes("deadline") || errMsg.includes("timeout") || errMsg.includes("internal error");
 
                         if (isModelNotFoundError) {
                             attempt++;
-                            console.warn(`Task ${task.name} failed because model ${selectedModel} returned 404 / not available. Auto-falling back to gemini-2.5-flash...`);
-                            showToast(`Model ${selectedModel} is not available. Falling back to Gemini 2.5 Flash.`, 'warning');
+                            console.warn(`Task ${task.name}: model returned 404. Rotating key and falling back to gemini-2.5-flash...`);
+                            showToast(`Model is not available with current key. Rotating key & falling back to Gemini 2.5 Flash.`, 'warning');
                             if (modelSelect) modelSelect.value = 'gemini-2.5-flash';
+                            if (API_KEYS.length > 1) rotateAPIKey();
+                            uploadedFileMetadata = [];
                             if (attempt >= maxAttempts) throw streamError;
                             continue;
                         }
 
-                        if (isFileUriError) {
+                        if (isBadRequestError) {
                             attempt++;
-                            console.warn(`Task ${task.name} failed with 400 File URI error. Clearing cached file metadata to force re-upload...`);
+                            console.warn(`Task ${task.name}: 400 Bad Request / Invalid Argument. Clearing file cache, rotating key, and retrying...`);
                             uploadedFileMetadata = [];
+                            if (API_KEYS.length > 1) rotateAPIKey();
                             if (attempt >= maxAttempts) throw streamError;
                             continue;
                         }

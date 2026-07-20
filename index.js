@@ -1310,9 +1310,11 @@ function hideUploadProgress() {
  * Poll the Gemini File API until the uploaded file reaches ACTIVE state.
  * Files are sometimes still PROCESSING right after upload — referencing them
  * before they are ACTIVE causes a 400 "invalid argument" from the API.
+ * Large files (50MB+) can take several minutes to process.
  */
-async function waitForFileActive(fileName, apiKey, maxWaitMs = 60000) {
+async function waitForFileActive(fileName, apiKey, maxWaitMs = 300000) {
     const start = Date.now();
+    let pollCount = 0;
     while (Date.now() - start < maxWaitMs) {
         try {
             const resp = await fetch(
@@ -1322,14 +1324,22 @@ async function waitForFileActive(fileName, apiKey, maxWaitMs = 60000) {
             const data = await resp.json();
             if (data.state === 'ACTIVE') return;
             if (data.state === 'FAILED') throw new Error(`File processing failed: ${fileName}`);
-            // Still PROCESSING — wait 2s and retry
-            await new Promise(r => setTimeout(r, 2000));
+            // Still PROCESSING — wait and retry (longer intervals for large files)
+            pollCount++;
+            const waitSecs = pollCount <= 5 ? 2 : pollCount <= 15 ? 4 : 8;
+            if (pollCount % 5 === 0) {
+                const elapsed = Math.round((Date.now() - start) / 1000);
+                console.log(`File still processing (${elapsed}s elapsed)... waiting ${waitSecs}s`);
+                showToast(`File still processing on Google servers (${elapsed}s)... please wait.`, 'info');
+            }
+            await new Promise(r => setTimeout(r, waitSecs * 1000));
         } catch (e) {
             if (e.message && e.message.startsWith('File processing failed')) throw e;
             return; // Network error — proceed optimistically
         }
     }
-    console.warn(`waitForFileActive timed out for ${fileName} — proceeding anyway`);
+    console.warn(`waitForFileActive timed out for ${fileName} after ${maxWaitMs/1000}s — proceeding anyway`);
+    showToast('File processing timed out. The request may fail — try a smaller file or retry.', 'warning');
 }
 
 
@@ -3296,7 +3306,7 @@ async function runAllSequentialTasks() {
                 let result = null;
                 let attempt = 0;
                 let attemptTaskInputTokens = 0;
-                const maxAttempts = API_KEYS.length > 1 ? API_KEYS.length : 3;
+                const maxAttempts = Math.max(4, API_KEYS.length); // At least 4 retries
                 let waitDelay = 7000;
                 let lastError = null;
 
@@ -3343,7 +3353,14 @@ async function runAllSequentialTasks() {
                                 if (msg.role === 'user' || msg.role === 'model') {
                                     const role = msg.role === 'model' ? 'model' : 'user';
                                     const msgParts = [];
-                                    if (msg.text) {
+                                    const text = (msg.text || '').trim();
+                                    // Skip loading placeholders and empty text
+                                    const isLoadingPlaceholder =
+                                        !text ||
+                                        /^\*Working/i.test(text) ||
+                                        /^\*Extracting/i.test(text) ||
+                                        /^\*\*Extraction run\*\*/i.test(text);
+                                    if (text && !isLoadingPlaceholder) {
                                         msgParts.push({ text: msg.text });
                                     }
                                     if (msg.files && msg.files.length > 0) {
@@ -3358,7 +3375,7 @@ async function runAllSequentialTasks() {
                                                         fileUri: meta.uri
                                                     }
                                                 });
-                                            } else {
+                                            } else if (f.mimeType && f.fileUri) {
                                                 msgParts.push({
                                                     fileData: {
                                                         mimeType: f.mimeType,
@@ -3369,37 +3386,12 @@ async function runAllSequentialTasks() {
                                         }
                                     }
 
-                                    if (role === lastAddedRole) {
-                                        if (msg.text) {
-                                            const lastPart = contents[contents.length - 1].parts[0];
-                                            if (lastPart && typeof lastPart.text === 'string') {
-                                                lastPart.text += `\n\n${msg.text}`;
-                                            } else {
-                                                contents[contents.length - 1].parts.push({ text: msg.text });
-                                            }
-                                        }
-                                        if (msg.files && msg.files.length > 0) {
-                                            for (let fIdx = 0; fIdx < msg.files.length; fIdx++) {
-                                                const f = msg.files[fIdx];
-                                                const originalFile = cachedFileObjects.find(cf => cf.name === f.name);
-                                                if (originalFile) {
-                                                    const meta = await getOrUploadFile(originalFile);
-                                                    contents[contents.length - 1].parts.push({
-                                                        fileData: {
-                                                            mimeType: meta.mimeType,
-                                                            fileUri: meta.uri
-                                                        }
-                                                    });
-                                                } else {
-                                                    contents[contents.length - 1].parts.push({
-                                                        fileData: {
-                                                            mimeType: f.mimeType,
-                                                            fileUri: f.fileUri
-                                                        }
-                                                    });
-                                                }
-                                            }
-                                        }
+                                    // Skip history entries with empty parts (avoid Gemini 400)
+                                    if (msgParts.length === 0) continue;
+
+                                    if (role === lastAddedRole && contents.length > 0) {
+                                        // Merge into previous same-role entry
+                                        contents[contents.length - 1].parts.push(...msgParts);
                                     } else {
                                         contents.push({
                                             role: role,
@@ -3433,8 +3425,9 @@ async function runAllSequentialTasks() {
 
                         // Sanitize contents before sending to the API:
                         // 1. Drop items with empty parts[] (loading placeholders with no text/files)
-                        // 2. Merge consecutive same-role messages \u2014 removing placeholders can leave
+                        // 2. Merge consecutive same-role messages — removing placeholders can leave
                         //    two 'user' turns back-to-back, which Gemini rejects with 400.
+                        // 3. Ensure contents starts with 'user' (Gemini requirement)
                         const safeContents = (() => {
                             const filtered = contents.filter(c => c.parts && c.parts.length > 0);
                             const merged = [];
@@ -3445,6 +3438,10 @@ async function runAllSequentialTasks() {
                                 } else {
                                     merged.push({ role: item.role, parts: [...item.parts] });
                                 }
+                            }
+                            // Gemini requires contents to start with 'user'
+                            while (merged.length > 0 && merged[0].role !== 'user') {
+                                merged.shift();
                             }
                             return merged;
                         })();
@@ -3501,7 +3498,13 @@ async function runAllSequentialTasks() {
 
                         if (isBadRequestError) {
                             attempt++;
-                            console.warn(`Task ${task.name}: 400 Bad Request / Invalid Argument. Clearing file cache, rotating key, and retrying...`);
+                            console.warn(`Task ${task.name}: 400 Bad Request / Invalid Argument. Error:`, streamError.message);
+                            // Log the payload shape for debugging (without the actual text content)
+                            try {
+                                const debugShape = safeContents.map(c => ({ role: c.role, partsCount: c.parts.length, partTypes: c.parts.map(p => p.text != null ? 'text' : p.fileData ? 'fileData' : 'unknown') }));
+                                console.warn('Payload shape:', JSON.stringify(debugShape));
+                                console.warn('genConfig:', JSON.stringify(genConfig));
+                            } catch (_) {}
                             uploadedFileMetadata = [];
                             if (API_KEYS.length > 1) rotateAPIKey();
                             if (attempt >= maxAttempts) throw streamError;

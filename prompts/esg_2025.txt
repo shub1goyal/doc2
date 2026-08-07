@@ -46,11 +46,11 @@ PM is different from PM 2.5 and PM 10.
 
 *   **COMPREHENSIVE SOURCE SCANNING:** You must extract data from all content types within the document(s), including standard text, tables, charts, graphs, infographics, and footnotes.
 
-*   **EXACT NUMERICAL TRANSCRIPTION:** Transcribe all numerical values exactly as they appear. **Do not round or calculate.**
+*   **EXACT NUMERICAL TRANSCRIPTION:** Transcribe all numerical values exactly as they appear, including all decimal places (e.g. 0.05, 1.25, 0.004). **Do not round, truncate, or calculate.**
 
 *   **CORRECT COLUMN IDENTIFICATION IN TABLES/CHARTS:** Use the official **Time Period Covered** as the primary source of truth. **CRITICAL:** Be aware that for a fiscal year like 'May 2024 - April 2025', companies often label the data column **'2024'**. You must correctly identify and extract from this '2024' column.
 
-*   **HANDLING MULTIPLE & CONFLICTING DATA:** If you find different values for the same metric, create a separate row for each distinct value, including very small differences (for example, 0.1% difference). If the value is exactly the same across multiple locations, do not duplicate rows; keep one row and include all page numbers in the source column.
+*   **HANDLING MULTIPLE, CONFLICTING & DECIMAL DATA:** If you find different values or different representations (e.g., integer vs. decimal, absolute vs. million/thousand scale, 40657 vs 40657.476, or 1250000 vs 1.25 Million) for the same metric across multiple locations, create a separate row for each distinct value or representation, including minor sub-decimal/fractional differences (e.g., 40657 vs 40657.476, or 0.05 vs 0.053). Do NOT discard or merge decimal entries into integer rows. If the value and unit format are exactly identical across multiple locations, keep one row and include all page numbers in the source column.
 
 *   **GRANULARITY:** PRIORITIZE GRANULARITY. Extract the most disaggregated data available. Do not sum or average numbers yourself.
 
@@ -60,7 +60,7 @@ PM is different from PM 2.5 and PM 10.
 
 *   **FOLLOW-UP CITATION RULE:** In any follow-up answer or additional question response, every extracted claim/value must include page number citation(s).
 
-*   **NUMERICAL FORMATTING:** Present all numerical values without commas (e.g., 1234567).
+*   **NUMERICAL FORMATTING:** Present all numerical values without commas (e.g., 1234567 or 1234567.89). Preserve decimal points exactly as they appear. Do not remove decimal points.
 
 *   **TABLE OUTPUT FORMAT (SIMPLIFIED):** Do not pre-render large template tables with many blank rows. Instead, for each section, output a table using only the required column headers listed in this prompt, then add rows only for requested metrics and discovered values.
 

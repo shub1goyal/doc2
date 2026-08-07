@@ -29,8 +29,138 @@ function initializeGenAI() {
     }
 }
 
-function rotateAPIKey() {
+// ── Per-Model API Key Exhaustion & LocalStorage Persistence ──────────
+
+const EXHAUSTION_STORAGE_KEY = 'gemini_model_exhaustion_v1';
+
+function getKeyFingerprint(key) {
+    if (!key) return 'key_none';
+    return 'key_' + key.slice(-6);
+}
+
+function getPacificMidnightTimestamp(date = new Date()) {
+    const now = new Date(date);
+    const ptString = now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" });
+    const ptDate = new Date(ptString);
+    ptDate.setHours(0, 0, 0, 0);
+    const diff = now.getTime() - new Date(now.toLocaleString("en-US", { timeZone: "America/Los_Angeles" })).getTime();
+    return ptDate.getTime() + diff;
+}
+
+function getStoredExhaustionData() {
+    try {
+        const raw = localStorage.getItem(EXHAUSTION_STORAGE_KEY);
+        if (raw) return JSON.parse(raw);
+    } catch (e) {
+        console.warn('Failed to parse exhaustion data from localStorage:', e);
+    }
+    return { lastResetBoundary: 0, records: {} };
+}
+
+function saveExhaustionData(data) {
+    try {
+        localStorage.setItem(EXHAUSTION_STORAGE_KEY, JSON.stringify(data));
+    } catch (e) {
+        console.warn('Failed to save exhaustion data to localStorage:', e);
+    }
+}
+
+function checkAndResetDailyQuotas() {
+    const data = getStoredExhaustionData();
+    const currentPtMidnight = getPacificMidnightTimestamp();
+    
+    if (Date.now() >= currentPtMidnight && (data.lastResetBoundary || 0) < currentPtMidnight) {
+        console.log("Midnight US Pacific Time quota reset boundary reached. Refreshing daily key exhaustion states...");
+        const newRecords = {};
+        for (const [keyId, rec] of Object.entries(data.records || {})) {
+            if (rec.reason === 'unsupported') {
+                newRecords[keyId] = rec;
+            }
+        }
+        data.lastResetBoundary = currentPtMidnight;
+        data.records = newRecords;
+        saveExhaustionData(data);
+        showToast("Daily Gemini API key quotas refreshed (Midnight US Pacific Time reset).", "info");
+    }
+}
+
+function getAvailableKeyForModel(modelName) {
+    checkAndResetDailyQuotas();
+    if (API_KEYS.length === 0) return null;
+
+    const data = getStoredExhaustionData();
+    const records = data.records || {};
+
+    const activeKey = API_KEYS[currentKeyIndex];
+    if (activeKey) {
+        const fp = getKeyFingerprint(activeKey);
+        const recordKey = `${fp}_${modelName}`;
+        if (!records[recordKey]) {
+            return { key: activeKey, index: currentKeyIndex };
+        }
+    }
+
+    for (let i = 0; i < API_KEYS.length; i++) {
+        const key = API_KEYS[i];
+        const fp = getKeyFingerprint(key);
+        const recordKey = `${fp}_${modelName}`;
+        if (!records[recordKey]) {
+            currentKeyIndex = i;
+            initializeGenAI();
+            return { key: key, index: i };
+        }
+    }
+
+    return null;
+}
+
+function markKeyExhaustedForModel(key, modelName, reason, errorMsg) {
+    if (!key || !modelName) return;
+    const fp = getKeyFingerprint(key);
+    const recordKey = `${fp}_${modelName}`;
+    const data = getStoredExhaustionData();
+    if (!data.records) data.records = {};
+
+    const ptMidnight = getPacificMidnightTimestamp();
+    const nextPtMidnight = ptMidnight + 24 * 60 * 60 * 1000;
+
+    data.records[recordKey] = {
+        keyEnding: key.slice(-4),
+        modelName: modelName,
+        reason: reason,
+        message: (errorMsg || '').slice(0, 150),
+        timestamp: Date.now(),
+        resetAt: nextPtMidnight
+    };
+
+    saveExhaustionData(data);
+    console.warn(`[Key Tracker] API key ending ...${key.slice(-4)} marked as '${reason}' for model '${modelName}'. Saved to localStorage.`);
+}
+
+function clearExhaustionState(modelName = null) {
+    const data = getStoredExhaustionData();
+    if (!modelName) {
+        data.records = {};
+    } else {
+        for (const k of Object.keys(data.records || {})) {
+            if (k.endsWith(`_${modelName}`)) {
+                delete data.records[k];
+            }
+        }
+    }
+    saveExhaustionData(data);
+    showToast("API key exhaustion states cleared.", "info");
+}
+
+window.clearExhaustionState = clearExhaustionState;
+window.getStoredExhaustionData = getStoredExhaustionData;
+
+function rotateAPIKey(modelName = null) {
     if (API_KEYS.length <= 1) return false;
+    if (modelName) {
+        const available = getAvailableKeyForModel(modelName);
+        return available !== null;
+    }
     currentKeyIndex = (currentKeyIndex + 1) % API_KEYS.length;
     initializeGenAI();
     return true;
@@ -123,9 +253,10 @@ const SYSTEM_INSTRUCTION = {
 - ONLY provide information that you can directly see and verify in the uploaded content
 - If information is not available in the document, clearly state "This information is not available in the provided document"
 - Do not make assumptions or fill in missing data with typical industry values
-- Do NOT stop searching the document after finding a metric. You MUST scan the entire document for every KPI and extract all values, including those with minor differences (e.g. 0.1% difference) in separate rows, while consolidating identical values with multiple page references.
+- Do NOT stop searching the document after finding a metric. You MUST scan the entire document for every KPI and extract all values, including any minor, sub-decimal, or fractional differences (e.g. 40657 vs 40657.476 or 0.1% difference) in separate rows, while consolidating identical values with multiple page references.
+- Always extract exact decimal figures (e.g. 40657.476, 0.05, 1.25, 0.004). If a metric (such as Scope 3, Scope 1, Scope 2, Water, Waste, etc.) appears at multiple places in different representations (e.g. as an integer like 40657 in one table, and as a precise decimal like 40657.476 or in different unit scales like 'Million tCO2e' in another summary/footnote), extract ALL distinct representations as separate rows with their respective page numbers. Do NOT collapse, round, or discard decimal disclosures.
 - For greenhouse gases included in disclosures, ONLY list the gases explicitly and qualitatively enumerated in the text. Do NOT derive, infer, or list gases (e.g. the 7 Kyoto gases) based on a general protocol or framework reference (such as 'GHG Protocol') if they are not explicitly named.
-- For immateriality details (company declares a metric as immaterial, non-material, not relevant, not applicable, negligible, nil, or null) and restatement details, do NOT add new columns. Instead, capture this qualitative information by adding separate, dedicated rows directly in the respective table (e.g. Metric: \"[Metric Name] - Immateriality Details\" or \"[Metric Name] - Restatement Details\", Value: \"[qualitative justification or reason for restatement]\", Unit: \"N/A\").
+- For immateriality details (company declares a metric as immaterial, non-material, not relevant, not applicable, negligible, nil, or null) and restatement details, do NOT add new columns. Instead, capture this qualitative information by adding separate, dedicated rows directly in the respective table (e.g. Metric: "[Metric Name] - Immateriality Details" or "[Metric Name] - Restatement Details", Value: "[qualitative justification or reason for restatement]", Unit: "N/A").
 - Do NOT extract intensity or normalized metrics in any table. This includes any metric expressed per rupee of turnover, per PPP-adjusted turnover, per physical output (per vehicle, per tractor, per tonne of packaging), per employee, or any other ratio/denominator. Only extract absolute values (total tonnes, total GJ, total kilolitres, etc.).
 
 **CRITICAL: Language Requirements**
@@ -1645,21 +1776,27 @@ async function handleSendMessage(event) {
 
                 if (isModelNotFoundError) {
                     attempt++;
-                    console.warn(`Model returned 404 / not available. Rotating key and falling back to gemini-2.5-flash...`);
-                    showToast(`Model is not available with current key. Rotating key & falling back to Gemini 2.5 Flash.`, 'warning');
-                    if (modelSelect) modelSelect.value = 'gemini-2.5-flash';
-                    if (API_KEYS.length > 1) rotateAPIKey();
+                    const activeKey = API_KEYS[currentKeyIndex];
+                    const selectedModel = modelSelect ? modelSelect.value : MODEL_NAME;
+                    markKeyExhaustedForModel(activeKey, selectedModel, 'unsupported', error.message);
+                    console.warn(`Model '${selectedModel}' returned 404 / unsupported for key ...${activeKey ? activeKey.slice(-4) : ''}. Rotating key for ${selectedModel}...`);
+                    showToast(`Key ...${activeKey ? activeKey.slice(-4) : ''} does not support model ${selectedModel}. Rotating to next API key...`, 'warning');
                     uploadedFileMetadata = [];
                     chatSession = null;
-                    if (attempt >= maxAttempts) throw error;
+                    const rotated = rotateAPIKey(selectedModel);
+                    if (!rotated || attempt >= maxAttempts) {
+                        throw new Error(`Model '${selectedModel}' is not supported or available on any API keys in your pool.`);
+                    }
                     continue;
                 }
 
                 if (isBadRequestError) {
                     attempt++;
+                    const activeKey = API_KEYS[currentKeyIndex];
+                    const selectedModel = modelSelect ? modelSelect.value : MODEL_NAME;
                     console.warn(`400 Bad Request / Invalid Argument detected. Clearing file cache, rotating key, and retrying...`);
                     uploadedFileMetadata = [];
-                    if (API_KEYS.length > 1) rotateAPIKey();
+                    rotateAPIKey(selectedModel);
                     chatSession = null;
                     if (attempt >= maxAttempts) throw error;
                     continue;
@@ -1684,11 +1821,18 @@ async function handleSendMessage(event) {
                         chatSession = null;
                     }
                     continue;
-                } else if (API_KEYS.length > 1) {
+                } else if (API_KEYS.length > 1 || isKeyError) {
                     attempt++;
-                    console.warn(`Chat failed due to key error. Rotating key and retrying immediately... Error:`, error);
-                    rotateAPIKey();
-                    chatSession = null; // Re-create session with the new key in next iteration
+                    const activeKey = API_KEYS[currentKeyIndex];
+                    const selectedModel = modelSelect ? modelSelect.value : MODEL_NAME;
+                    markKeyExhaustedForModel(activeKey, selectedModel, 'exhausted', error.message);
+                    console.warn(`Chat failed on key ...${activeKey ? activeKey.slice(-4) : ''} for model ${selectedModel}. Rotating key... Error:`, error);
+                    showToast(`Key ...${activeKey ? activeKey.slice(-4) : ''} quota exhausted for ${selectedModel}. Trying next key...`, 'warning');
+                    const rotated = rotateAPIKey(selectedModel);
+                    chatSession = null;
+                    if (!rotated || attempt >= maxAttempts) {
+                        throw new Error(`All API keys in pool are exhausted or unsupported for model '${selectedModel}'. Daily reset is at Midnight US Pacific Time (~1:30 PM - 2:00 PM IST).`);
+                    }
                     continue;
                 } else if (isTransientOrRetryableError(error)) {
                     attempt++;
@@ -2900,7 +3044,13 @@ function formatEnvTablesToMarkdown(data, tables, emptyMessage) {
             md += `| ${headers.join(" | ")} |\n`;
             md += `| ${headers.map(() => "---").join(" | ")} |\n`;
             rows.forEach(r => {
-                md += `| ${r.metric || 'N/A'} | ${r.value || 'N/A'} | ${r.unit || 'N/A'} | ${r.pageSource || 'N/A'} | ${r.section || 'N/A'} | ${r.reportingBoundary || 'N/A'} |\n`;
+                const val = (r.value !== undefined && r.value !== null && r.value !== "") ? String(r.value) : 'N/A';
+                const met = (r.metric !== undefined && r.metric !== null && r.metric !== "") ? String(r.metric) : 'N/A';
+                const unt = (r.unit !== undefined && r.unit !== null && r.unit !== "") ? String(r.unit) : 'N/A';
+                const pg = (r.pageSource !== undefined && r.pageSource !== null && r.pageSource !== "") ? String(r.pageSource) : 'N/A';
+                const sec = (r.section !== undefined && r.section !== null && r.section !== "") ? String(r.section) : 'N/A';
+                const bnd = (r.reportingBoundary !== undefined && r.reportingBoundary !== null && r.reportingBoundary !== "") ? String(r.reportingBoundary) : 'N/A';
+                md += `| ${met} | ${val} | ${unt} | ${pg} | ${sec} | ${bnd} |\n`;
             });
         }
     });
@@ -3019,7 +3169,12 @@ function formatTask3ToMarkdown(data) {
         md += `| ${headers.join(" | ")} |\n`;
         md += `| ${headers.map(() => "---").join(" | ")} |\n`;
         data.financialTable.forEach(r => {
-            md += `| ${r.metric || 'N/A'} | ${r.value || 'N/A'} | ${r.unitCurrency || 'N/A'} | ${r.pageSource || 'N/A'} | ${r.section || 'N/A'} |\n`;
+            const val = (r.value !== undefined && r.value !== null && r.value !== "") ? String(r.value) : 'N/A';
+            const met = (r.metric !== undefined && r.metric !== null && r.metric !== "") ? String(r.metric) : 'N/A';
+            const unt = (r.unitCurrency !== undefined && r.unitCurrency !== null && r.unitCurrency !== "") ? String(r.unitCurrency) : 'N/A';
+            const pg = (r.pageSource !== undefined && r.pageSource !== null && r.pageSource !== "") ? String(r.pageSource) : 'N/A';
+            const sec = (r.section !== undefined && r.section !== null && r.section !== "") ? String(r.section) : 'N/A';
+            md += `| ${met} | ${val} | ${unt} | ${pg} | ${sec} |\n`;
         });
     } else {
         md += `\n\nNo financial data points found.`;
@@ -3487,12 +3642,15 @@ async function runAllSequentialTasks() {
 
                         if (isModelNotFoundError) {
                             attempt++;
-                            console.warn(`Task ${task.name}: model returned 404. Rotating key and falling back to gemini-2.5-flash...`);
-                            showToast(`Model is not available with current key. Rotating key & falling back to Gemini 2.5 Flash.`, 'warning');
-                            if (modelSelect) modelSelect.value = 'gemini-2.5-flash';
-                            if (API_KEYS.length > 1) rotateAPIKey();
+                            const activeKey = API_KEYS[currentKeyIndex];
+                            markKeyExhaustedForModel(activeKey, selectedModel, 'unsupported', streamError.message);
+                            console.warn(`Task ${task.name}: key ...${activeKey ? activeKey.slice(-4) : ''} returned 404/unsupported for ${selectedModel}. Rotating key...`);
+                            showToast(`Key ...${activeKey ? activeKey.slice(-4) : ''} does not support model ${selectedModel}. Rotating to next API key...`, 'warning');
                             uploadedFileMetadata = [];
-                            if (attempt >= maxAttempts) throw streamError;
+                            const rotated = rotateAPIKey(selectedModel);
+                            if (!rotated || attempt >= maxAttempts) {
+                                throw new Error(`Model '${selectedModel}' is not supported or available on any API keys in your pool.`);
+                            }
                             continue;
                         }
 
@@ -3534,10 +3692,16 @@ async function runAllSequentialTasks() {
                                 rotateAPIKey();
                             }
                             continue;
-                        } else if (API_KEYS.length > 1) {
+                        } else if (API_KEYS.length > 1 || isKeyError) {
                             attempt++;
-                            console.warn(`Task ${task.name} failed due to key error. Rotating key and retrying immediately... Error:`, streamError);
-                            rotateAPIKey();
+                            const activeKey = API_KEYS[currentKeyIndex];
+                            markKeyExhaustedForModel(activeKey, selectedModel, 'exhausted', streamError.message);
+                            console.warn(`Task ${task.name} failed on key ...${activeKey ? activeKey.slice(-4) : ''} for model ${selectedModel}. Rotating key... Error:`, streamError);
+                            showToast(`Key ...${activeKey ? activeKey.slice(-4) : ''} quota exhausted for ${selectedModel}. Trying next key...`, 'warning');
+                            const rotated = rotateAPIKey(selectedModel);
+                            if (!rotated || attempt >= maxAttempts) {
+                                throw new Error(`All API keys in pool are exhausted or unsupported for model '${selectedModel}'. Daily reset is at Midnight US Pacific Time (~1:30 PM - 2:00 PM IST).`);
+                            }
                             continue;
                         } else if (isTransientOrRetryableError(streamError)) {
                             attempt++;

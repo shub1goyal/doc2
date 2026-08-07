@@ -76,7 +76,9 @@ PM is different from PM 2.5 and PM 10.
 
 *   **STRICT TABLE SYNTAX:** When outputting tables, do not append any backslashes ("\") or escape characters at the end of table lines, headers, or titles. Ensure there is a clean, empty line directly before and after every table block.
 
-*   **ROW ORDERING RULE (TOTAL -> BREAKDOWN):** Do not separate totals and breakdowns into disconnected row groups. For each metric family, place the total row first, followed immediately by its breakdown rows in the next lines of the same table.
+*   **ROW ORDERING & CONTEXTUAL CONTINUATION RULE:** Organize table rows logically in contiguous, structured blocks so values do not jump back and forth.
+    - **Total to Breakdown Continuation:** For each metric family, place the Group Consolidated Total row first, followed immediately by its breakdown rows in the next lines of the same table.
+    - **Contiguous Grouping by Scope / Plant / Subsidiary:** Group metrics in logical continuation without alternating randomly. Either group Scope 1 metrics together (Total Scope 1 -> Plant A Scope 1 -> Plant B Scope 1), then Scope 2 metrics together (Total Scope 2 -> Plant A Scope 2 -> Plant B Scope 2), OR group by facility/subsidiary context in continuation (Consolidated Group Block -> Plant A Block [Scope 1, Scope 2] -> Plant B Block [Scope 1, Scope 2] -> Subsidiary C Block).
 
 *   **NON-RESTRICTIVE KPI RULE:** Metric lists in this prompt are the minimum required baseline, not the full limit. Always extract additional relevant environmental KPIs disclosed for 2024 under the correct section (for example: refrigerant emissions/leakage, refrigerant type-wise details, or other explicitly reported GHG-related metrics).
 
@@ -84,7 +86,9 @@ PM is different from PM 2.5 and PM 10.
 
 *   **EMPTY CELL HANDLING:** Never leave a cell truly empty. Use "N/A" when a field is not applicable.
 
-*   **PER-KPI REPORTING BOUNDARY RULE:** For the "Reporting Boundary" column of every row in every table, do NOT blindly copy the general report boundary. For each individual metric, actively check: (1) the specific section header or sub-section boundary statement, (2) footnotes or notes directly adjacent to that data point, (3) assurance statement scopes that reference specific KPIs, (4) any inline qualifier in the text (e.g. "for our 22 manufacturing plants", "for automotive sector only", "standalone basis"). Use the most specific boundary that directly applies to that metric. Only fall back to the general report boundary if no more specific boundary can be found.
+*   **PER-KPI REPORTING BOUNDARY & CONSOLIDATED/PARTIAL TAGGING RULE:** For the "Reporting Boundary" column of every row in every table, do NOT blindly copy the general report boundary. For each individual metric row:
+    - **Mandatory Classification Prefix:** You MUST prefix every boundary entry with either **'Consolidated'** or **'Partial'** to provide an immediate classification hint (e.g. "Consolidated (All domestic and overseas sites and subsidiaries)", "Partial (Changwon Plant)", "Partial (Dangjin Plant)", "Partial (22 Manufacturing Plants in India)").
+    - **Specific Local Scope:** Actively check section headers, footnotes, inline qualifiers, or assurance statement scopes to apply the most granular boundary specific to that metric. Only fall back to the general report boundary if no more specific boundary can be found.
 
 
 *   **INTERNAL KPI COVERAGE CHECK & EXHAUSTIVE MULTI-LOCATION COVERAGE:** You must analyze every requested KPI, sub-KPI, and category for the reporting period across ALL pages of the document, even if a metric is reported in multiple sections (e.g. Scope 3 reported on Page 45, Page 88, and Page 125). When verifying metric coverage, do not stop at the first summary table. You MUST verify and record every distinct occurrence across all pages, including sub-decimal variations (down to 0.0001), distinct local boundaries, and disaggregated sub-categories.

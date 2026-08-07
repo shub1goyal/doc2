@@ -57,9 +57,10 @@ PM is different from PM 2.5 and PM 10.
 
 *   **CORRECT COLUMN IDENTIFICATION IN TABLES/CHARTS:** Use the official **Time Period Covered** as the primary source of truth. **CRITICAL:** Be aware that for a fiscal year like 'May 2021 - April 2022', companies often label the data column **'2021'**. You must correctly identify and extract from this '2021' column.
 
-*   **MANDATORY EXHAUSTIVE MULTI-PAGE SCANNING & SUB-DECIMAL MULTI-LOCATION ROW RULE (NO SINGLE-PAGE TRUNCATION):** You MUST systematically scan EVERY SINGLE PAGE of the document from start to end for every requested KPI (Scope 1, Scope 2, Scope 3 categories, Water, Waste, Energy, Air Pollutants, Financials).
-    - **Capture Every Distinct Occurrence:** If a KPI appears at multiple pages, sections, or tables across the document with ANY variation — including sub-decimal differences as small as 0.0001 (e.g. 40657 vs 40657.4761, or 1.25 vs 1.2504), different local boundaries, different units, or different sub-category disaggregations — you MUST create a SEPARATE ROW in the extraction table for EVERY distinct occurrence.
-    - **Strict Prohibition on Single-Page Truncation:** NEVER extract from only one summary page (e.g. Page 125) and omit occurrences from other pages. If Scope 3 or Scope 1 data is disclosed on Page 45, Page 88, and Page 125, you MUST generate distinct extraction rows for ALL 3 locations, recording the exact value, unit, page citation, and local reporting boundary for each page.
+*   **MANDATORY EXHAUSTIVE MULTI-PAGE SCANNING & PROHIBITION ON VALUE COLLAPSING / PAGE MERGING:** You MUST systematically scan EVERY SINGLE PAGE of the document from start to end for every requested KPI.
+    - **No Page Merging for Differing Values:** You MUST NEVER combine multiple page numbers onto a single extraction row if the values on those pages differ in ANY way (including integer vs decimal representations, rounded vs exact figures, or different reporting sections like Factbook vs Assurance Statement).
+    - **One Row Per Distinct Value/Section Pair:** If a metric appears on Page A with one representation/value and on Page B with a different representation/value, you MUST generate TWO SEPARATE ROWS. Page A's row must list ONLY Page A in its Page Source column, and Page B's row must list ONLY Page B in its Page Source column.
+    - **Mandatory Footnote Boundary Capture:** Any footnote or explanatory note attached to a table disclosure (such as methodology changes, boundary expansions, or calculation notes) MUST be extracted as a dedicated detail row directly beneath that metric row, linking its exact page citation.
 
 *   **GRANULARITY:** PRIORITIZE GRANULARITY. Extract the most disaggregated data available. Do not sum or average numbers yourself.
 

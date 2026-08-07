@@ -27,13 +27,20 @@ PM is different from PM 2.5 and PM 10.
 
 *   **TARGET YEAR + YEAR ALIGNMENT GATE:** Default target year is FY24 unless the user explicitly specifies another target year. Extract for the active target profile year only. Assign environmental data to profile year by the environmental period end year (Environmental DPM year-covered rule). If target year does not match the assigned profile year, stop KPI analysis for that target year and return a concise Year Mismatch note with citation. Never mix environmental data from one profile year with financial context from another profile year.
 
-*   **SCOPE VALIDATION & HIERARCHY:** You must prioritize the specific boundary defined for the **ESG/environmental data** over any general financial consolidation scope. After extracting the verbatim boundary description, perform a validation by cross-referencing it with revenue data to classify the boundary:
-    *   Classify as **'Consolidated (within reporting boundary)'** if:
-        *   Stated scope covers All / Global / Domestic & Overseas companies or operations (e.g., all subsidiaries, group, offices, sites, branches, stores, data centers), OR covered entities account for **90% or more** of total revenue/operations.
-        *   *Special Plant Rule:* If all plants/manufacturing sites are included and sales offices are not, classify as **'Consolidated (within reporting boundary)'**.
-        *   *Exclusions allowed:* Exclusions of franchises, branding, suppliers, partners, contractors, or discontinued/acquired companies in the FY do not disqualify a boundary from being consolidated.
-    *   Classify as **'Partial'** if covered entities/operations cover only domestic or "major" companies/operations, or account for **less than 90%** of total revenue/operations.
-    *   Classify as **'Unclear'** if the scope is ambiguous (e.g., "major operations") or if subsidiary/revenue coverage cannot be verified against an Annual Report.
+*   **DEDICATED SCOPE VALIDATION & HIERARCHY:** You must perform a dedicated, standalone audit of the company's reporting scope and operational boundary before analyzing any environmental or financial metrics. Prioritize the specific boundary defined for ESG/environmental data over general financial consolidation scope:
+    1. **Business Profile & Manufacturing Check:** First check if the company is a Manufacturing entity, Service entity, Financial institution, or Conglomerate. Identify all physical operational sites (factories, plants, R&D centers, offices, data centers).
+    2. **Special Plant Rule:** If the company is a manufacturing entity and ALL manufacturing plants/sites are included in the disclosure (even if sales or administrative offices are excluded), classify as **'Consolidated (within reporting boundary)'**.
+    3. **Revenue Verification & Calculation Rules:**
+       - NEVER use customer-location or customer-based revenue breakdowns.
+       - Use ONLY Geographical Revenue (revenue by country/region of origin/operations).
+       - If segment/entity revenue is disclosed by Parent or Subsidiary, take Income Statement Revenue directly.
+       - Covered Revenue >= 90% ➔ Classify as **'Consolidated (within reporting boundary)'**.
+       - Covered Revenue < 90% ➔ Classify as **'Partial (within reporting boundary)'**.
+    4. **Strict Mismatch Rule (No Production/Capacity Split Estimates):** Do NOT perform any capacity, production split, or estimated calculations. If a mismatch exists (e.g. 3 of 5 regional factories are covered without direct individual revenue disclosures for the excluded 2), simply classify the boundary as **'Partial (within reporting boundary)'** or **'Unclear'**, stating the exact mismatch fact in Validation Notes.
+    5. **Exclusion Classification Matrix:**
+       - Allowed Exclusions (Do not break Consolidation): Franchises, Branding, Suppliers, Partners, Contractors, Discontinued or Acquired companies in the FY.
+       - Disqualifying Exclusions (Forces Partial): Major-only sites, domestic-only operations (<90% revenue), omitted manufacturing plants, data unavailability for core group entities.
+
 *   **GHG ORGANIZATIONAL APPROACH RULE:** If Scope 1 or Scope 2 emissions are disclosed, classifying the GHG Organizational Approach is mandatory. Select from the following hierarchy (prioritizing the first 3 control/equity approaches over the last 2):
     1. **Financial Control:** Financial consolidation / Consolidated entities / Fully consolidated / Majority of ownership.
     2. **Equity Share:** Equity stake / Net-asset value.
@@ -96,23 +103,26 @@ PM is different from PM 2.5 and PM 10.
 
 ---
 
-**Task 1: Document Identification & Reporting Scope**
+**Task 1: Comprehensive Reporting Scope & Operational Boundary Audit**
 
 *   Company Name: [Identify the company name] (Page #)
 *   Document Type: [Identify the report type] (Page #)
 *   Time Period Covered: [State the full time period] (Page #)
-*   Boundary Description: [Extract the MOST SPECIFIC operational boundary statement available. Prefer the BRSR section boundary or the assurance statement boundary over the general introduction. If multiple boundary statements exist in different sections, list all of them in order from most specific to least specific, each with its page number.] (Page #)
-*   Boundary Completeness Classification: [Classify as 'Consolidated (within reporting boundary)', 'Partial', or 'Unclear']
-*   Validation Notes: [Mandatory field. Explain the reasoning for your classification. Include revenue figures with page references if used.]
+*   Company Business Model / Type: [Manufacturing / Services / Financial / Conglomerate] (Page #)
+*   Total Disclosed Operational Footprint: [List total factories, offices, sites, or facilities disclosed in report] (Page #)
+*   Verbatim Boundary Description: [Extract the MOST SPECIFIC operational boundary statement available. Prefer the BRSR section boundary or the assurance statement boundary over the general introduction. List all boundary statements in order from most specific to least specific.] (Page #)
+*   Explicit Exclusions Disclosed: [List all explicit exclusions mentioned, or write 'None Disclosed'] (Page #)
+*   Boundary Completeness Classification: [Classify as 'Consolidated (within reporting boundary)', 'Partial (within reporting boundary)', or 'Unclear']
+*   Disclosure Revenue % Coverage: [Disclose % value if stated, OR 'XX% (Calculated via Geographical/Income Statement Revenue)', OR 'Not Disclosed - Unable to Calculate'] (Page #)
+*   Validation Notes: [Mandatory field. Explain the reasoning for your classification in detail. Cover manufacturing plant status, revenue verification source, and any mismatch observations.]
 *   Reporting Frameworks Mentioned: [List all specific reporting frameworks found anywhere in the document] (Page #)
 *   GHG Organizational Approach (if Scope 1 or 2 disclosed): [Financial Control / Equity Share / Operational Control / Other Boundary Criteria Disclosed / No Approach Disclosed] (Page #)
 *   GHG Assurance Coverage (If Available): [Extract assurance/verification coverage only for GHG-related data; include boundary/scope text exactly as stated] (Page #)
-*   GHG Assurance Standard (If Available): [Extract only the named assurance standard used for GHG (e.g., ISAE 3000, ISO 14064-3) exactly as stated] (Page #)
+*   GHG Assurance Standard (If Available): [Extract named assurance standard used for GHG (e.g., ISAE 3000, ISO 14064-3) exactly as stated] (Page #)
 *   GHG Assurance Level (If Available): [Limited / Reasonable / Other] (Page #)
-*   Disclosure Revenue % Coverage: [Value % or state "Disclosed" / "Calculated" / "Not disclosed - unable to calculate"] (Page #)
-*   **Materiality Assessment (If Available):** [Extract the company's materiality assessment approach (single materiality / double materiality / impact materiality / financial materiality), list of material environmental topics identified, and methodology reference (e.g., stakeholder engagement, peer benchmarking), or write 'Not Found'] (Page #)
-*   **GHG Base Year (If Available):** [Extract the stated GHG emissions base year, any base year recalculation policy or trigger (e.g., "recalculate if structural changes exceed 5%"), and Science-Based Target base year if disclosed, or write 'Not Found'] (Page #)
-*   **GHG Assurance Covered KPIs (If Available):** [List the specific GHG KPIs/metrics explicitly covered under the assurance/verification standard, or state 'Not Found'] (Page #)
+*   GHG Assurance Covered KPIs (If Available): [List specific GHG KPIs explicitly covered under assurance/verification standard, or write 'Not Found'] (Page #)
+*   Materiality Assessment (If Available): [Extract materiality approach (single/double/impact/financial), list of material environmental topics identified, and methodology reference, or write 'Not Found'] (Page #)
+*   GHG Base Year (If Available): [Extract stated GHG emissions base year, any base year recalculation policy or trigger (e.g., "recalculate if structural changes exceed 5%"), and Science-Based Target base year, or write 'Not Found'] (Page #)
 
 ---
 

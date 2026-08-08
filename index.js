@@ -1127,20 +1127,118 @@ function cleanupExpiredChatSessions() {
     }
 }
 
+function generateSessionTitleFromTaskResponse(taskResponseText) {
+    if (!taskResponseText || typeof taskResponseText !== 'string') return '';
+
+    let companyName = '';
+    let reportYear = '';
+    let docType = '';
+
+    // Try parsing JSON if structured
+    try {
+        let cleanText = taskResponseText.trim();
+        if (cleanText.startsWith("```")) {
+            cleanText = cleanText.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "").trim();
+        }
+        const parsed = JSON.parse(cleanText);
+        if (parsed) {
+            companyName = parsed.company_name || parsed.companyName || parsed.company || parsed.entity_name || '';
+            reportYear = parsed.reporting_year || parsed.reportYear || parsed.year || parsed.period || '';
+            docType = parsed.document_type || parsed.docType || parsed.report_type || '';
+        }
+    } catch (_) {
+        // Fallback to Markdown regex parsing
+    }
+
+    // Markdown regex extraction
+    if (!companyName) {
+        const companyMatch = taskResponseText.match(/(?:Company(?:\s+Name)?|Entity(?:\s+Name)?|Organization)\s*[:|-]\s*\**([^\n\*\|#]+)/i);
+        if (companyMatch && companyMatch[1]) {
+            companyName = companyMatch[1].trim();
+        }
+    }
+
+    if (!reportYear) {
+        const yearMatch = taskResponseText.match(/(?:Reporting\s+(?:Year|Period)|Year|Period)\s*[:|-]\s*\**([^\n\*\|#]+)/i) || taskResponseText.match(/\b(202[0-9]|FY\s*202[0-9])\b/i);
+        if (yearMatch && yearMatch[1]) {
+            reportYear = yearMatch[1].trim();
+        }
+    }
+
+    if (!docType) {
+        const docMatch = taskResponseText.match(/(?:Document\s+Type|Report\s+Type)\s*[:|-]\s*\**([^\n\*\|#]+)/i);
+        if (docMatch && docMatch[1]) {
+            docType = docMatch[1].trim();
+        }
+    }
+
+    // If company name was found, format clean title
+    if (companyName && companyName.length >= 2 && companyName.length <= 45) {
+        let title = companyName;
+        if (reportYear && reportYear.length <= 12) {
+            title += ` (${reportYear})`;
+        } else if (docType && docType.length <= 25) {
+            title += ` - ${docType}`;
+        }
+        return title;
+    }
+
+    // Fallback: Check for prominent header title
+    const headerMatch = taskResponseText.match(/^#+\s*(.+)$/m) || taskResponseText.match(/\*\*([^*]{5,40})\*\*/);
+    if (headerMatch && headerMatch[1]) {
+        let cleanHeader = headerMatch[1].replace(/^(?:⚡?\s*Task\s*\d+:?|Document Identification|Analysis|Report|Summary)[:|-]?\s*/i, '').trim();
+        if (cleanHeader.length >= 3 && cleanHeader.length <= 40) {
+            return cleanHeader;
+        }
+    }
+
+    // Fallback: First meaningful line truncated
+    const lines = taskResponseText.split('\n')
+        .map(l => l.replace(/[*#`_|-]/g, '').trim())
+        .filter(l => l.length > 5 && !/^(Task|Document Identification|Extraction|Analysis|Warning)/i.test(l));
+    if (lines.length > 0) {
+        let cleanLine = lines[0].substring(0, 32).trim();
+        if (lines[0].length > 32) cleanLine += '...';
+        return cleanLine;
+    }
+
+    return '';
+}
+
 function saveCurrentSessionToLocalStorage() {
     try {
         if (!activeSessionId) return;
         const now = Date.now();
 
-        // Auto-generate title if default
-        let title = 'New Chat Session';
-        if (uploadedFiles.length > 0) {
-            const firstFile = uploadedFiles[0].name.replace(/\.[^/.]+$/, "");
-            title = `${firstFile} ${activePrefix ? '(' + activePrefix + ')' : ''}`;
-        } else if (messages.length > 0) {
-            const userMsg = messages.find(m => m.role === 'user');
-            if (userMsg && userMsg.text) {
-                title = userMsg.text.substring(0, 30) + (userMsg.text.length > 30 ? '...' : '');
+        let sessionObj = chatSessions.find(s => s.id === activeSessionId);
+        let currentTitle = sessionObj ? sessionObj.title : 'New Chat Session';
+
+        // Check if title should be updated from Gemini response (Task 1 or initial model message)
+        // We do NOT use uploaded file names for chat title.
+        let newTitle = currentTitle;
+
+        // 1. Try Task 1 output
+        const task1Response = seqTaskOutputs['task1'] || seqTaskOutputs['task_1'] || (seqTaskOutputs ? Object.values(seqTaskOutputs)[0] : '');
+        if (task1Response) {
+            const derivedTitle = generateSessionTitleFromTaskResponse(task1Response);
+            if (derivedTitle) {
+                newTitle = derivedTitle;
+            }
+        }
+
+        // 2. Try first model message if title is still default
+        if ((!newTitle || newTitle === 'New Chat Session' || newTitle.startsWith('Untitled')) && messages.length > 0) {
+            const modelMsg = messages.find(m => m.role === 'model' && m.text && !m.text.startsWith("Hello! I'm Analyst AI"));
+            if (modelMsg) {
+                const derivedTitle = generateSessionTitleFromTaskResponse(modelMsg.text);
+                if (derivedTitle) {
+                    newTitle = derivedTitle;
+                }
+            } else {
+                const userMsg = messages.find(m => m.role === 'user');
+                if (userMsg && userMsg.text) {
+                    newTitle = userMsg.text.substring(0, 30).trim() + (userMsg.text.length > 30 ? '...' : '');
+                }
             }
         }
 
@@ -1152,20 +1250,17 @@ function saveCurrentSessionToLocalStorage() {
             uri: f.uri || ''
         }));
 
-        let sessionObj = chatSessions.find(s => s.id === activeSessionId);
         if (sessionObj) {
             sessionObj.lastUpdated = now;
             sessionObj.messages = messages;
             sessionObj.uploadedFiles = serializableFiles;
             sessionObj.activePrefix = activePrefix;
             sessionObj.seqTaskOutputs = seqTaskOutputs;
-            if (sessionObj.title === 'New Chat Session' && title !== 'New Chat Session') {
-                sessionObj.title = title;
-            }
+            sessionObj.title = newTitle;
         } else {
             sessionObj = {
                 id: activeSessionId,
-                title: title,
+                title: newTitle,
                 createdAt: now,
                 lastUpdated: now,
                 messages: messages,

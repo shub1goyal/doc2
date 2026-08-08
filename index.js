@@ -2,7 +2,7 @@
 import { GoogleGenerativeAI, HarmCategory, HarmBlockThreshold } from '@google/generative-ai';
 
 // Configuration
-const MODEL_NAME = 'gemini-2.5-flash';
+const MODEL_NAME = 'gemini-2.0-flash';
 const MAX_FILE_SIZE = 2 * 1024 * 1024 * 1024; // 2GB limit for Gemini File API
 
 // API Key Management & Robust Rotation
@@ -173,17 +173,10 @@ function rotateAPIKey(modelName = null) {
  */
 function buildThinkingConfig(modelName) {
     const m = (modelName || '').toLowerCase();
-    if (m.includes('gemini-2.5-pro')) {
-        return { thinkingBudget: 32768 };
-    }
-    if (m.includes('gemini-2.5')) {
+    if (m.includes('thinking')) {
         return { thinkingBudget: 24576 };
     }
-    if (m.includes('gemini-3')) {
-        return { thinkingLevel: 'high' };
-    }
-    // Older models (2.0, 1.5, etc.) do not support thinkingConfig at all.
-    // Returning null signals callers to omit the field entirely.
+    // Standard models (2.0-flash, 1.5-pro, 1.5-flash) do not use thinkingConfig
     return null;
 }
 

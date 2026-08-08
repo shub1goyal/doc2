@@ -431,7 +431,7 @@ loadPromptPresets();
 function safeGetElement(id) {
     const element = document.getElementById(id);
     if (!element) {
-        console.error(`Element with id '${id}' not found`);
+        console.warn(`Element with id '${id}' not found`);
     }
     return element;
 }
@@ -1894,17 +1894,17 @@ async function getOrUploadFile(file) {
     const activeKey = API_KEYS.length > 0 ? API_KEYS[currentKeyIndex] : '';
     if (!activeKey) throw new Error("API Key is required for file upload");
 
-    // 1. Check if we already have an active Gemini URI for this file & API Key
+    // 1. Check if we already have an active Gemini URI for this file & EXACT activeKey
     let meta = uploadedFileMetadata.find(
         m => m.name === file.name && m.size === file.size && m.apiKey === activeKey && m.uri
     );
 
-    // 2. Check if file object itself carries a valid Gemini URI (e.g. from restored session)
-    if (!meta && file.uri && typeof file.uri === 'string' && file.uri.startsWith('http')) {
+    // 2. Check if file object carries a valid Gemini URI for activeKey
+    if (!meta && file.uris && file.uris[activeKey]) {
         meta = {
             name: file.name,
             size: file.size,
-            uri: file.uri,
+            uri: file.uris[activeKey],
             mimeType: file.type || getFileMimeType(file),
             apiKey: activeKey
         };
@@ -1912,7 +1912,7 @@ async function getOrUploadFile(file) {
         return meta;
     }
 
-    // 3. Otherwise upload file (resolving real Blob if file is POJO)
+    // 3. Otherwise upload file using activeKey (resolving real Blob if file is POJO)
     if (!meta) {
         const fileMetadata = await uploadFileToGemini(file);
         if (fileMetadata.name) {
@@ -1926,8 +1926,10 @@ async function getOrUploadFile(file) {
             mimeType: fileMetadata.mimeType || getFileMimeType(file),
             apiKey: activeKey
         };
-        // Store URI directly on file object so it persists across renders
-        file.uri = fileMetadata.uri;
+        // Store URI per API key on file object so it persists across calls and key rotations
+        if (!file.uris) file.uris = {};
+        file.uris[activeKey] = fileMetadata.uri;
+        file.uri = fileMetadata.uri; // backward compatibility
         uploadedFileMetadata.push(meta);
     }
     return meta;
@@ -2283,8 +2285,24 @@ async function handleSendMessage(event) {
                 const errMsg = (error.message || "").toLowerCase();
                 const isModelNotFoundError = errMsg.includes("404") || errMsg.includes("not found") || errMsg.includes("not available");
                 const isBadRequestError = errMsg.includes("400") || errMsg.includes("invalid argument") || errMsg.includes("bad request");
-                const isKeyError = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403");
+                const isFileAccessError = errMsg.includes("permission to access the file") || errMsg.includes("may not exist") || (errMsg.includes("403") && errMsg.includes("file"));
+                const isKeyError = (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || (errMsg.includes("permission") && !isFileAccessError) || (errMsg.includes("403") && !isFileAccessError));
                 const isServiceError = errMsg.includes("503") || errMsg.includes("500") || errMsg.includes("504") || errMsg.includes("overloaded") || errMsg.includes("overload") || errMsg.includes("demand") || errMsg.includes("unavailable") || errMsg.includes("deadline") || errMsg.includes("timeout") || errMsg.includes("internal error");
+
+                if (isFileAccessError) {
+                    attempt++;
+                    console.warn(`File access permission error detected (403). Clearing file cache for current key and retrying upload...`);
+                    const currentKey = API_KEYS[currentKeyIndex];
+                    uploadedFileMetadata = uploadedFileMetadata.filter(m => m.apiKey !== currentKey);
+                    if (uploadedFiles && uploadedFiles.length > 0) {
+                        for (const f of uploadedFiles) {
+                            if (f.uris) delete f.uris[currentKey];
+                        }
+                    }
+                    chatSession = null;
+                    if (attempt >= maxAttempts) throw error;
+                    continue;
+                }
 
                 if (isModelNotFoundError) {
                     attempt++;
@@ -4155,8 +4173,23 @@ async function runAllSequentialTasks() {
                         const errMsg = (streamError.message || "").toLowerCase();
                         const isModelNotFoundError = errMsg.includes("404") || errMsg.includes("not found") || errMsg.includes("not available");
                         const isBadRequestError = errMsg.includes("400") || errMsg.includes("invalid argument") || errMsg.includes("bad request");
-                        const isKeyError = errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || errMsg.includes("permission") || errMsg.includes("403");
+                        const isFileAccessError = errMsg.includes("permission to access the file") || errMsg.includes("may not exist") || (errMsg.includes("403") && errMsg.includes("file"));
+                        const isKeyError = (errMsg.includes("429") || errMsg.includes("quota") || errMsg.includes("rate limit") || errMsg.includes("resource exhausted") || errMsg.includes("api key") || (errMsg.includes("permission") && !isFileAccessError) || (errMsg.includes("403") && !isFileAccessError));
                         const isServiceError = errMsg.includes("503") || errMsg.includes("500") || errMsg.includes("504") || errMsg.includes("overloaded") || errMsg.includes("overload") || errMsg.includes("demand") || errMsg.includes("unavailable") || errMsg.includes("deadline") || errMsg.includes("timeout") || errMsg.includes("internal error");
+
+                        if (isFileAccessError) {
+                            attempt++;
+                            console.warn(`Task ${task.name}: File access permission error detected (403). Clearing file cache for current key and retrying upload...`);
+                            const currentKey = API_KEYS[currentKeyIndex];
+                            uploadedFileMetadata = uploadedFileMetadata.filter(m => m.apiKey !== currentKey);
+                            if (uploadedFiles && uploadedFiles.length > 0) {
+                                for (const f of uploadedFiles) {
+                                    if (f.uris) delete f.uris[currentKey];
+                                }
+                            }
+                            if (attempt >= maxAttempts) throw streamError;
+                            continue;
+                        }
 
                         if (isModelNotFoundError) {
                             attempt++;

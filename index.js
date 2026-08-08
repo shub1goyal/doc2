@@ -1797,9 +1797,21 @@ async function uploadFileToGemini(file) {
     const activeKey = API_KEYS.length > 0 ? API_KEYS[currentKeyIndex] : '';
     if (!activeKey) throw new Error("API Key is required for file upload");
 
-    const fileSize = file.size;
-    const mimeType = getFileMimeType(file);
-    const displayName = file.name;
+    // Ensure we are operating on a real Blob/File object (not a serialized POJO)
+    let uploadTarget = file;
+    if (!(uploadTarget instanceof Blob)) {
+        // Try resolving real File object from cachedFileObjects
+        const cachedBlob = cachedFileObjects.find(cf => cf.name === file.name && cf.size === file.size && (cf instanceof Blob));
+        if (cachedBlob) {
+            uploadTarget = cachedBlob;
+        } else {
+            throw new Error(`Upload failed: Original file handle for '${file.name}' is missing in this restored session. Please re-attach the file from your computer.`);
+        }
+    }
+
+    const fileSize = uploadTarget.size;
+    const mimeType = getFileMimeType(uploadTarget);
+    const displayName = uploadTarget.name || file.name;
 
     console.log(`Starting upload for ${displayName} (${fileSize} bytes, type: ${mimeType})`);
 
@@ -1859,22 +1871,35 @@ async function uploadFileToGemini(file) {
         };
 
         xhr.onerror = () => reject(new Error("Network error during upload"));
-        xhr.send(file);
+        xhr.send(uploadTarget);
     });
 }
 
 async function getOrUploadFile(file) {
     const activeKey = API_KEYS.length > 0 ? API_KEYS[currentKeyIndex] : '';
     if (!activeKey) throw new Error("API Key is required for file upload");
-    // Include file.size in cache key to avoid stale hits when re-uploading a file
-    // with the same name but different content (or after a session reset)
+
+    // 1. Check if we already have an active Gemini URI for this file & API Key
     let meta = uploadedFileMetadata.find(
-        m => m.name === file.name && m.size === file.size && m.apiKey === activeKey
+        m => m.name === file.name && m.size === file.size && m.apiKey === activeKey && m.uri
     );
+
+    // 2. Check if file object itself carries a valid Gemini URI (e.g. from restored session)
+    if (!meta && file.uri && typeof file.uri === 'string' && file.uri.startsWith('http')) {
+        meta = {
+            name: file.name,
+            size: file.size,
+            uri: file.uri,
+            mimeType: file.type || getFileMimeType(file),
+            apiKey: activeKey
+        };
+        uploadedFileMetadata.push(meta);
+        return meta;
+    }
+
+    // 3. Otherwise upload file (resolving real Blob if file is POJO)
     if (!meta) {
         const fileMetadata = await uploadFileToGemini(file);
-        // Wait until the file is ACTIVE before caching — referencing a PROCESSING
-        // file URI in countTokens or generateContent causes a 400 "invalid argument".
         if (fileMetadata.name) {
             await waitForFileActive(fileMetadata.name, activeKey);
         }
@@ -1886,6 +1911,8 @@ async function getOrUploadFile(file) {
             mimeType: fileMetadata.mimeType || getFileMimeType(file),
             apiKey: activeKey
         };
+        // Store URI directly on file object so it persists across renders
+        file.uri = fileMetadata.uri;
         uploadedFileMetadata.push(meta);
     }
     return meta;

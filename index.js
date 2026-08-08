@@ -1083,13 +1083,153 @@ window.editPrefix = editPrefix;
 window.deletePrefix = deletePrefix;
 window.setActivePrefixById = setActivePrefixById;
 
-/**
- * Initialize the chat with a welcome message
- */
-function initializeChat() {
-    let welcomeMessage = `Hello! I'm Analyst AI. Upload documents, choose an ESG preset, and click Send to run extraction — or type a follow-up question.`;
+// ── Chat Session History & 48-Hour Auto-Purge Storage Engine ──────────────
+const SESSIONS_STORAGE_KEY = 'analyst_ai_chat_sessions_v1';
+const CHAT_RETENTION_MS = 48 * 60 * 60 * 1000; // 48 Hours Retention
 
-    // Add warning if no build-injected keys are configured
+let activeSessionId = Date.now().toString();
+let chatSessions = []; // Array of session objects
+
+function cleanupExpiredChatSessions() {
+    try {
+        const rawData = localStorage.getItem(SESSIONS_STORAGE_KEY);
+        if (!rawData) return;
+        const parsed = JSON.parse(rawData);
+        const sessions = parsed.sessions || [];
+        const now = Date.now();
+
+        // Filter sessions updated within last 48 hours
+        const validSessions = sessions.filter(s => {
+            const lastUpdated = s.lastUpdated || s.createdAt || now;
+            return (now - lastUpdated) <= CHAT_RETENTION_MS;
+        });
+
+        if (validSessions.length !== sessions.length) {
+            console.log(`Auto-purged ${sessions.length - validSessions.length} expired chat sessions (>48 hours old).`);
+            localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify({
+                activeSessionId: parsed.activeSessionId,
+                sessions: validSessions
+            }));
+        }
+        chatSessions = validSessions;
+    } catch (err) {
+        console.error('Error during 48-hour chat session cleanup:', err);
+    }
+}
+
+function saveCurrentSessionToLocalStorage() {
+    try {
+        if (!activeSessionId) return;
+        const now = Date.now();
+
+        // Auto-generate title if default
+        let title = 'New Chat Session';
+        if (uploadedFiles.length > 0) {
+            const firstFile = uploadedFiles[0].name.replace(/\.[^/.]+$/, "");
+            title = `${firstFile} ${activePrefix ? '(' + activePrefix + ')' : ''}`;
+        } else if (messages.length > 0) {
+            const userMsg = messages.find(m => m.role === 'user');
+            if (userMsg && userMsg.text) {
+                title = userMsg.text.substring(0, 30) + (userMsg.text.length > 30 ? '...' : '');
+            }
+        }
+
+        // Clean serializable uploaded files (no File objects, only metadata)
+        const serializableFiles = uploadedFiles.map(f => ({
+            name: f.name,
+            size: f.size,
+            type: f.type,
+            uri: f.uri || ''
+        }));
+
+        let sessionObj = chatSessions.find(s => s.id === activeSessionId);
+        if (sessionObj) {
+            sessionObj.lastUpdated = now;
+            sessionObj.messages = messages;
+            sessionObj.uploadedFiles = serializableFiles;
+            sessionObj.activePrefix = activePrefix;
+            sessionObj.seqTaskOutputs = seqTaskOutputs;
+            if (sessionObj.title === 'New Chat Session' && title !== 'New Chat Session') {
+                sessionObj.title = title;
+            }
+        } else {
+            sessionObj = {
+                id: activeSessionId,
+                title: title,
+                createdAt: now,
+                lastUpdated: now,
+                messages: messages,
+                uploadedFiles: serializableFiles,
+                activePrefix: activePrefix,
+                seqTaskOutputs: seqTaskOutputs
+            };
+            chatSessions.unshift(sessionObj);
+        }
+
+        // Enforce 48h filter before saving
+        const validSessions = chatSessions.filter(s => (now - (s.lastUpdated || s.createdAt)) <= CHAT_RETENTION_MS);
+        chatSessions = validSessions;
+
+        localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify({
+            activeSessionId: activeSessionId,
+            sessions: chatSessions
+        }));
+
+        renderSidebarSessions();
+    } catch (err) {
+        console.error('Failed to save current chat session:', err);
+    }
+}
+
+function loadChatSessionsFromStorage() {
+    try {
+        cleanupExpiredChatSessions();
+        const rawData = localStorage.getItem(SESSIONS_STORAGE_KEY);
+        if (!rawData) {
+            createNewChatSession();
+            return;
+        }
+        const parsed = JSON.parse(rawData);
+        chatSessions = parsed.sessions || [];
+        if (chatSessions.length > 0) {
+            const targetId = parsed.activeSessionId || chatSessions[0].id;
+            const targetSession = chatSessions.find(s => s.id === targetId) || chatSessions[0];
+            switchActiveSession(targetSession.id);
+        } else {
+            createNewChatSession();
+        }
+    } catch (err) {
+        console.error('Error loading chat sessions:', err);
+        createNewChatSession();
+    }
+}
+
+function switchActiveSession(sessionId) {
+    const session = chatSessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    activeSessionId = session.id;
+    messages = session.messages || [];
+    uploadedFiles = session.uploadedFiles || [];
+    activePrefix = session.activePrefix || '';
+    seqTaskOutputs = session.seqTaskOutputs || {};
+
+    // Re-render UI
+    render();
+    renderSidebarSessions();
+}
+
+function createNewChatSession() {
+    // Save previous if any
+    saveCurrentSessionToLocalStorage();
+
+    activeSessionId = Date.now().toString();
+    messages = [];
+    uploadedFiles = [];
+    seqTaskOutputs = {};
+    activePrefix = '';
+
+    let welcomeMessage = `Hello! I'm Analyst AI. Upload documents, choose an ESG preset, and click Send to run extraction — or type a follow-up question.`;
     if (API_KEYS.length === 0) {
         welcomeMessage += '\n\n⚠️ **No API keys configured.** Deploy with the `GEMINI_API_KEYS` GitHub secret, or inject keys for local testing.';
     } else {
@@ -1103,7 +1243,257 @@ function initializeChat() {
             text: welcomeMessage
         }
     ];
+
+    const newSession = {
+        id: activeSessionId,
+        title: 'New Chat Session',
+        createdAt: Date.now(),
+        lastUpdated: Date.now(),
+        messages: messages,
+        uploadedFiles: [],
+        activePrefix: '',
+        seqTaskOutputs: {}
+    };
+
+    chatSessions.unshift(newSession);
+    saveCurrentSessionToLocalStorage();
+
     render();
+    renderSidebarSessions();
+}
+
+function deleteChatSession(sessionId, e) {
+    if (e) e.stopPropagation();
+    chatSessions = chatSessions.filter(s => s.id !== sessionId);
+
+    if (activeSessionId === sessionId) {
+        if (chatSessions.length > 0) {
+            switchActiveSession(chatSessions[0].id);
+        } else {
+            createNewChatSession();
+        }
+    } else {
+        localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify({
+            activeSessionId: activeSessionId,
+            sessions: chatSessions
+        }));
+        renderSidebarSessions();
+    }
+}
+
+function renameChatSession(sessionId, e) {
+    if (e) e.stopPropagation();
+    const session = chatSessions.find(s => s.id === sessionId);
+    if (!session) return;
+
+    const newTitle = prompt('Enter new session title:', session.title);
+    if (newTitle && newTitle.trim()) {
+        session.title = newTitle.trim();
+        session.lastUpdated = Date.now();
+        saveCurrentSessionToLocalStorage();
+    }
+}
+
+function renderSidebarSessions() {
+    const listContainer = document.getElementById('sidebar-sessions-list');
+    if (!listContainer) return;
+
+    if (chatSessions.length === 0) {
+        listContainer.innerHTML = `
+            <div class="text-center text-gray-500 text-xs py-8">
+                No active chat sessions
+            </div>`;
+        return;
+    }
+
+    const now = Date.now();
+    const ONE_DAY = 24 * 60 * 60 * 1000;
+
+    const todaySessions = [];
+    const yesterdaySessions = [];
+    const previousSessions = [];
+
+    chatSessions.forEach(s => {
+        const age = now - (s.lastUpdated || s.createdAt || now);
+        if (age < ONE_DAY) {
+            todaySessions.push(s);
+        } else if (age < 2 * ONE_DAY) {
+            yesterdaySessions.push(s);
+        } else {
+            previousSessions.push(s);
+        }
+    });
+
+    let html = '';
+
+    const renderGroup = (title, items) => {
+        if (items.length === 0) return '';
+        let groupHtml = `<div class="text-[11px] font-semibold text-gray-400 uppercase tracking-wider px-2 pt-3 pb-1">${title}</div>`;
+        items.forEach(s => {
+            const isActive = s.id === activeSessionId;
+            groupHtml += `
+                <div class="session-item ${isActive ? 'active' : ''}" data-session-id="${s.id}">
+                    <div class="flex items-center space-x-2 truncate flex-1 min-w-0">
+                        <svg xmlns="http://www.w3.org/2000/svg" class="h-4 w-4 ${isActive ? 'text-indigo-400' : 'text-gray-400'} shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 10h.01M12 10h.01M16 10h.01M9 16H5a2 2 0 01-2-2V6a2 2 0 012-2h14a2 2 0 012 2v8a2 2 0 01-2 2h-5l-5 5v-5z" />
+                        </svg>
+                        <span class="truncate text-xs">${s.title || 'Untitled Session'}</span>
+                    </div>
+                    <div class="session-actions">
+                        <button class="session-action-btn rename-btn" title="Rename" data-session-id="${s.id}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.572L16.732 3.732z" />
+                            </svg>
+                        </button>
+                        <button class="session-action-btn delete-btn" title="Delete" data-session-id="${s.id}">
+                            <svg xmlns="http://www.w3.org/2000/svg" class="h-3.5 w-3.5" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16" />
+                            </svg>
+                        </button>
+                    </div>
+                </div>`;
+        });
+        return groupHtml;
+    };
+
+    html += renderGroup('Today', todaySessions);
+    html += renderGroup('Yesterday', yesterdaySessions);
+    html += renderGroup('Previous 48 Hours', previousSessions);
+
+    listContainer.innerHTML = html;
+
+    // Attach click listeners
+    listContainer.querySelectorAll('.session-item').forEach(el => {
+        el.addEventListener('click', () => {
+            const sid = el.getAttribute('data-session-id');
+            if (sid && sid !== activeSessionId) {
+                switchActiveSession(sid);
+            }
+        });
+    });
+
+    listContainer.querySelectorAll('.rename-btn').forEach(el => {
+        el.addEventListener('click', (e) => {
+            const sid = el.getAttribute('data-session-id');
+            renameChatSession(sid, e);
+        });
+    });
+
+    listContainer.querySelectorAll('.delete-btn').forEach(el => {
+        el.addEventListener('click', (e) => {
+            const sid = el.getAttribute('data-session-id');
+            deleteChatSession(sid, e);
+        });
+    });
+}
+
+function openSettingsModal() {
+    const modal = document.getElementById('settings-modal');
+    const countEl = document.getElementById('settings-session-count');
+    if (countEl) {
+        countEl.textContent = chatSessions.length.toString();
+    }
+    if (modal) {
+        modal.classList.remove('hidden');
+    }
+}
+
+function closeSettingsModal() {
+    const modal = document.getElementById('settings-modal');
+    if (modal) {
+        modal.classList.add('hidden');
+    }
+}
+
+function clearAllChatSessions() {
+    if (confirm('Are you sure you want to clear all saved chat sessions? This action cannot be undone.')) {
+        chatSessions = [];
+        localStorage.removeItem(SESSIONS_STORAGE_KEY);
+        createNewChatSession();
+        closeSettingsModal();
+        showToast('All saved chat sessions cleared.', 'success');
+    }
+}
+
+function wipeAllLocalStorage() {
+    if (confirm('Are you sure you want to wipe ALL application storage? This will reset all sessions, settings, and exhaustion logs.')) {
+        chatSessions = [];
+        localStorage.clear();
+        createNewChatSession();
+        closeSettingsModal();
+        showToast('All local storage wiped successfully.', 'success');
+    }
+}
+
+function exportChatSessionsJSON() {
+    try {
+        const dataStr = "data:text/json;charset=utf-8," + encodeURIComponent(JSON.stringify(chatSessions, null, 2));
+        const downloadAnchor = document.createElement('a');
+        downloadAnchor.setAttribute("href", dataStr);
+        downloadAnchor.setAttribute("download", `analyst_ai_chat_backup_${Date.now()}.json`);
+        document.body.appendChild(downloadAnchor);
+        downloadAnchor.click();
+        downloadAnchor.remove();
+        showToast('Chat history exported as JSON.', 'success');
+    } catch (err) {
+        console.error('Failed to export chat sessions:', err);
+        showToast('Failed to export chat history.', 'error');
+    }
+}
+
+function initSidebarEventListeners() {
+    const toggleBtn = document.getElementById('toggle-sidebar-btn');
+    const sidebar = document.getElementById('chat-sidebar');
+    if (toggleBtn && sidebar) {
+        toggleBtn.addEventListener('click', () => {
+            sidebar.classList.toggle('collapsed');
+        });
+    }
+
+    const newChatBtn = document.getElementById('new-chat-btn');
+    if (newChatBtn) {
+        newChatBtn.addEventListener('click', () => {
+            createNewChatSession();
+        });
+    }
+
+    const settingsBtn = document.getElementById('settings-btn');
+    if (settingsBtn) {
+        settingsBtn.addEventListener('click', openSettingsModal);
+    }
+
+    const closeSettingsX = document.getElementById('close-settings-modal-x');
+    if (closeSettingsX) {
+        closeSettingsX.addEventListener('click', closeSettingsModal);
+    }
+
+    const closeSettingsBtn = document.getElementById('close-settings-modal-btn');
+    if (closeSettingsBtn) {
+        closeSettingsBtn.addEventListener('click', closeSettingsModal);
+    }
+
+    const clearSessionsBtn = document.getElementById('clear-all-sessions-btn');
+    if (clearSessionsBtn) {
+        clearSessionsBtn.addEventListener('click', clearAllChatSessions);
+    }
+
+    const clearStorageBtn = document.getElementById('clear-all-storage-btn');
+    if (clearStorageBtn) {
+        clearStorageBtn.addEventListener('click', wipeAllLocalStorage);
+    }
+
+    const exportSessionsBtn = document.getElementById('export-sessions-btn');
+    if (exportSessionsBtn) {
+        exportSessionsBtn.addEventListener('click', exportChatSessionsJSON);
+    }
+}
+
+/**
+ * Initialize the chat with a welcome message or stored sessions
+ */
+function initializeChat() {
+    initSidebarEventListeners();
+    loadChatSessionsFromStorage();
 }
 
 // API Key Modal Functions removed (replaced by environment key injection)
@@ -2181,6 +2571,11 @@ function render() {
 
     // Update active prefix indicator
     updateActivePrefixIndicator();
+
+    // Auto-save active chat session state to local storage
+    if (typeof saveCurrentSessionToLocalStorage === 'function') {
+        saveCurrentSessionToLocalStorage();
+    }
 
     // Scroll to bottom with a delay to ensure content is rendered
     if (chatContainer) {

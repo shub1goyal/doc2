@@ -39,17 +39,18 @@ SYSTEM EXECUTION & GLOBAL MANDATORY RULES (APPLY TO ALL TASKS)
 
 7. **MANDATORY EXHAUSTIVE SCANNING & PROHIBITION ON VALUE COLLAPSING / PAGE MERGING:**
    - Scan EVERY page of all uploaded documents.
-   - **No Page Merging for Differing Values:** You MUST NEVER combine multiple page numbers onto a single row if the values on those pages differ in ANY way (e.g. integer `497600` on Page 31 vs decimal `497600.408` on Page 125).
-   - **Separate Rows for Distinct Disclosures:** If a metric appears on Page 31 with one value and Page 125 with another, output TWO SEPARATE ROWS.
+   - **MANDATORY MULTI-PAGE INTEGER VS DECIMAL EXTRACTION:** If a metric appears on Page 31 narrative/Factbook as a rounded integer (e.g. `497600`) and on Page 125 Assurance Statement as an exact decimal (e.g. `497600.408`), you MUST extract BOTH as TWO SEPARATE ROWS in Task 2 tables!
+   - **STRICT PROHIBITION ON DEDUPLICATING / SKIPPING:** NEVER skip or omit a rounded integer row simply because an exact decimal exists on another page.
+   - **No Page Merging for Differing Values:** You MUST NEVER combine multiple page numbers onto a single row if the numerical values or decimal representations differ in ANY way.
 
 8. **PER-KPI REPORTING BOUNDARY & MANDATORY 'CONSOLIDATED' / 'PARTIAL' TAGGING:**
    - For every table row, the `Reporting Boundary` cell MUST be prefixed with either **`Consolidated`** or **`Partial`** in parentheses.
    - Examples: `Consolidated (All domestic and overseas sites and subsidiaries)`, `Partial (Changwon Plant)`, `Partial (3 Domestic Manufacturing Sites)`.
 
-9. **MULTIPLE REPORTED VALUES FOR SAME KPI EXTRACTION RULE:**
-   - If a report discloses MULTIPLE values for the SAME KPI across different sections, facilities, plants, subsidiaries, operational vs financial boundaries, location-based vs market-based methodologies, or original vs restated figures, you MUST extract EVERY SINGLE DISTINCT VALUE as a separate row in Task 2.
-   - Do NOT collapse, average, or pick only one single value for a KPI.
-   - In Task 4 (Audit Mode Part B & Part C Metric Coverage Checklist), explicitly audit whether multiple reported values exist for each KPI, list all reported values and their context, and flag any omitted multi-value disclosures in a dedicated breakdown table.
+9. **MULTIPLE REPORTED VALUES FOR SAME KPI EXTRACTION & METRIC COVERAGE MANDATE:**
+   - If a report discloses MULTIPLE values for the SAME KPI across different pages, sections, facilities, plants, subsidiaries, operational vs financial boundaries, location-based vs market-based methodologies, integer vs decimal representations, or original vs restated figures, you MUST extract EVERY SINGLE DISTINCT VALUE as a separate row in Task 2.
+   - Do NOT collapse, average, or select only one single value for a KPI.
+   - **METRIC COVERAGE CHECKLIST MANDATE (TASK 4 PART C):** In the Metric Coverage Checklist, whenever a KPI appears on multiple pages with different rounding/precision (e.g. integer `497600` on Page 31 vs decimal `497600.408` on Page 125) or location/methodology context, you MUST set `Multiple Reported Values Available?` to **`Yes`** and explicitly document the exact variations and page numbers (e.g. `Yes (Page 31: 497,600 integer vs Page 125: 497,600.408 decimal)`). Setting "No" when rounded vs decimal or multi-page variations exist is a CRITICAL AUDIT FAILURE.
 
 10. **CONTIGUOUS ROW GROUPING:**
     - Group metrics in logical continuation (Total Group row first ➔ Plant/Facility breakdowns immediately following).

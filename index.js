@@ -1211,6 +1211,12 @@ function saveCurrentSessionToLocalStorage() {
         const now = Date.now();
 
         let sessionObj = chatSessions.find(s => s.id === activeSessionId);
+        
+        // Defensive check: If activeSessionId was deleted and chatSessions is non-empty, do NOT resurrect deleted session!
+        if (!sessionObj && chatSessions.length > 0) {
+            return;
+        }
+
         let currentTitle = sessionObj ? sessionObj.title : 'New Chat Session';
 
         // Check if title should be updated from Gemini response (Task 1 or initial model message)
@@ -1291,7 +1297,7 @@ function loadChatSessionsFromStorage() {
         cleanupExpiredChatSessions();
         const rawData = localStorage.getItem(SESSIONS_STORAGE_KEY);
         if (!rawData) {
-            createNewChatSession();
+            createNewChatSession(true);
             return;
         }
         const parsed = JSON.parse(rawData);
@@ -1301,11 +1307,11 @@ function loadChatSessionsFromStorage() {
             const targetSession = chatSessions.find(s => s.id === targetId) || chatSessions[0];
             switchActiveSession(targetSession.id);
         } else {
-            createNewChatSession();
+            createNewChatSession(true);
         }
     } catch (err) {
         console.error('Error loading chat sessions:', err);
-        createNewChatSession();
+        createNewChatSession(true);
     }
 }
 
@@ -1326,7 +1332,7 @@ function switchActiveSession(sessionId) {
 
 let lastNewChatTimestamp = 0;
 
-function createNewChatSession() {
+function createNewChatSession(skipSaveCurrent = false) {
     const now = Date.now();
     // Debounce rapid duplicate calls (e.g. within 400ms)
     if (now - lastNewChatTimestamp < 400) {
@@ -1334,8 +1340,10 @@ function createNewChatSession() {
     }
     lastNewChatTimestamp = now;
 
-    // Save previous if any
-    saveCurrentSessionToLocalStorage();
+    // Save previous session if valid and not explicitly skipped
+    if (!skipSaveCurrent && activeSessionId) {
+        saveCurrentSessionToLocalStorage();
+    }
 
     activeSessionId = now.toString();
     messages = [];
@@ -1361,8 +1369,8 @@ function createNewChatSession() {
     const newSession = {
         id: activeSessionId,
         title: 'New Chat Session',
-        createdAt: Date.now(),
-        lastUpdated: Date.now(),
+        createdAt: now,
+        lastUpdated: now,
         messages: messages,
         uploadedFiles: [],
         activePrefix: '',
@@ -1370,7 +1378,11 @@ function createNewChatSession() {
     };
 
     chatSessions.unshift(newSession);
-    saveCurrentSessionToLocalStorage();
+
+    localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify({
+        activeSessionId: activeSessionId,
+        sessions: chatSessions
+    }));
 
     render();
     renderSidebarSessions();
@@ -1378,13 +1390,16 @@ function createNewChatSession() {
 
 function deleteChatSession(sessionId, e) {
     if (e) e.stopPropagation();
+    
+    // Remove session from array
     chatSessions = chatSessions.filter(s => s.id !== sessionId);
 
     if (activeSessionId === sessionId) {
+        activeSessionId = null; // Clear reference so deleted session is not resurrected
         if (chatSessions.length > 0) {
             switchActiveSession(chatSessions[0].id);
         } else {
-            createNewChatSession();
+            createNewChatSession(true); // Skip saving deleted active session
         }
     } else {
         localStorage.setItem(SESSIONS_STORAGE_KEY, JSON.stringify({

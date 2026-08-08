@@ -1324,11 +1324,20 @@ function switchActiveSession(sessionId) {
     renderSidebarSessions();
 }
 
+let lastNewChatTimestamp = 0;
+
 function createNewChatSession() {
+    const now = Date.now();
+    // Debounce rapid duplicate calls (e.g. within 400ms)
+    if (now - lastNewChatTimestamp < 400) {
+        return;
+    }
+    lastNewChatTimestamp = now;
+
     // Save previous if any
     saveCurrentSessionToLocalStorage();
 
-    activeSessionId = Date.now().toString();
+    activeSessionId = now.toString();
     messages = [];
     uploadedFiles = [];
     seqTaskOutputs = {};
@@ -1554,50 +1563,9 @@ function exportChatSessionsJSON() {
 }
 
 function initSidebarEventListeners() {
-    const toggleBtn = document.getElementById('toggle-sidebar-btn');
-    const sidebar = document.getElementById('chat-sidebar');
-    if (toggleBtn && sidebar) {
-        toggleBtn.addEventListener('click', () => {
-            sidebar.classList.toggle('collapsed');
-        });
-    }
-
-    const newChatBtn = document.getElementById('new-chat-btn');
-    if (newChatBtn) {
-        newChatBtn.addEventListener('click', () => {
-            createNewChatSession();
-        });
-    }
-
-    const settingsBtn = document.getElementById('settings-btn');
-    if (settingsBtn) {
-        settingsBtn.addEventListener('click', openSettingsModal);
-    }
-
-    const closeSettingsX = document.getElementById('close-settings-modal-x');
-    if (closeSettingsX) {
-        closeSettingsX.addEventListener('click', closeSettingsModal);
-    }
-
-    const closeSettingsBtn = document.getElementById('close-settings-modal-btn');
-    if (closeSettingsBtn) {
-        closeSettingsBtn.addEventListener('click', closeSettingsModal);
-    }
-
-    const clearSessionsBtn = document.getElementById('clear-all-sessions-btn');
-    if (clearSessionsBtn) {
-        clearSessionsBtn.addEventListener('click', clearAllChatSessions);
-    }
-
-    const clearStorageBtn = document.getElementById('clear-all-storage-btn');
-    if (clearStorageBtn) {
-        clearStorageBtn.addEventListener('click', wipeAllLocalStorage);
-    }
-
-    const exportSessionsBtn = document.getElementById('export-sessions-btn');
-    if (exportSessionsBtn) {
-        exportSessionsBtn.addEventListener('click', exportChatSessionsJSON);
-    }
+    // Event listeners are bound via inline onclick attributes in index.html (with window object exposure).
+    // Defensive check to ensure initial sessions render cleanly on load.
+    renderSidebarSessions();
 }
 
 /**

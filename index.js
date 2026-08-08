@@ -1082,6 +1082,16 @@ function openPromptPrefixModalFromDropdown() {
 window.editPrefix = editPrefix;
 window.deletePrefix = deletePrefix;
 window.setActivePrefixById = setActivePrefixById;
+window.toggleSidebar = toggleSidebar;
+window.createNewChatSession = createNewChatSession;
+window.openSettingsModal = openSettingsModal;
+window.closeSettingsModal = closeSettingsModal;
+window.clearAllChatSessions = clearAllChatSessions;
+window.wipeAllLocalStorage = wipeAllLocalStorage;
+window.exportChatSessionsJSON = exportChatSessionsJSON;
+window.switchActiveSession = switchActiveSession;
+window.deleteChatSession = deleteChatSession;
+window.renameChatSession = renameChatSession;
 
 // ── Chat Session History & 48-Hour Auto-Purge Storage Engine ──────────────
 const SESSIONS_STORAGE_KEY = 'analyst_ai_chat_sessions_v1';
@@ -1385,6 +1395,13 @@ function renderSidebarSessions() {
             deleteChatSession(sid, e);
         });
     });
+}
+
+function toggleSidebar() {
+    const sidebar = document.getElementById('chat-sidebar');
+    if (sidebar) {
+        sidebar.classList.toggle('collapsed');
+    }
 }
 
 function openSettingsModal() {

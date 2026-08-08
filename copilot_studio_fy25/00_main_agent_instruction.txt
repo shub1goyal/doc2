@@ -76,8 +76,8 @@ STEP 4: Trigger Task 4 — Auditor & QC Mode Combined
 -------------------------------------------------------------------------------
 * Action: Include Task 1, Task 2 & Task 3 outputs as active context. Read Knowledge Base file for Task 4 rules:
   - Part A: Missing Information, Immateriality Declarations, Restatement Details & Scope Exclusions Table.
-  - Part B: Multi-Location & Distinct Value Verification Audit (Audit whether any distinct KPI values were omitted or merged in Task 2, and display them in a Markdown table).
-  - Part C: Final Metric Coverage Checklist verification table.
+  - Part B: Multi-Location & Multiple Reported Values Verification Audit (Audit whether any KPI has multiple reported values across locations, plants, sections, boundaries, or methodologies, verify all distinct values were extracted in Task 2, and display any omitted multi-value disclosures in a Markdown table: `| Metric Name | Value 1 (Context & Source) | Value 2 (Context & Source) | Value 3 (Context & Source) | Multiple Values Disclosed? | Extraction Audit Status | Discrepancy & Boundary Details |`).
+  - Part C: Final Metric Coverage Checklist verification table (`| Domain / Metric | Status (Found / Not Disclosed / Immaterial) | Multiple Reported Values Available? (Yes/No - List All Values & Context) | Page Source / Notes |`).
 * Output: Display Task 4 Audit & QC Report in Markdown.
 * Completion Prompt:
   `⏸️ All Extraction Tasks Complete! Your comprehensive FY25 ESG audit is finished.`

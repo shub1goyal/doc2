@@ -3525,12 +3525,13 @@ function formatMetricCoverageToMarkdown(coverage) {
     // Collapsible in UI; excluded from "copy full response"
     let md = `\n\n<!--EXCLUDE_FROM_COPY_START-->\n`;
     md += `<details class="metric-coverage-collapsible">\n`;
-    md += `<summary><strong>Metric Coverage Checklist</strong></summary>\n\n`;
-    md += `| Metric | Status | Notes |\n`;
-    md += `| --- | --- | --- |\n`;
+    md += `<summary><strong>Metric Coverage Checklist & Multiple Value Audit</strong></summary>\n\n`;
+    md += `| Metric / Domain | Status | Multiple Reported Values Available? (Yes/No - Context) | Notes / Page Source |\n`;
+    md += `| --- | --- | --- | --- |\n`;
     coverage.forEach(c => {
         const notes = (c.notes || 'N/A').replace(/\|/g, '\\|');
-        md += `| ${c.metricName || 'N/A'} | ${c.status || 'N/A'} | ${notes} |\n`;
+        const multVal = (c.multipleReportedValues || c.multipleValues || 'No').replace(/\|/g, '\\|');
+        md += `| ${c.metricName || 'N/A'} | ${c.status || 'N/A'} | ${multVal} | ${notes} |\n`;
     });
     md += `\n</details>\n<!--EXCLUDE_FROM_COPY_END-->\n`;
     return md;

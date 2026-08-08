@@ -218,16 +218,16 @@ Categories:
 3. `restatement`: Reasons for restated or recalculated environmental metrics (methodology changes, error corrections).
 4. `boundary_or_scope`: Explicit scope exclusions for environmental KPIs.
 
-### Part B: Multi-Location & Distinct Value Verification Audit
-Actively audit the uploaded document(s) to verify whether any KPI appeared with different values across multiple pages, sections, or tables (e.g. Page 31 rounded integer vs Page 125 exact decimal, or Page 45 plant value vs Page 88 summary value).
-* Verify whether ALL distinct values were successfully captured as separate rows in Task 2.
-* **If ANY distinct value or multi-location disclosure was omitted or merged in Task 2**, output it here in a dedicated Markdown table:
+### Part B: Multi-Location & Multiple Reported Values Verification Audit
+Actively audit the uploaded document(s) to verify whether any KPI appeared with MULTIPLE values across different pages, sections, tables, locations, facilities, or methodologies (e.g. Page 31 rounded integer vs Page 125 exact decimal, Location-based vs Market-based Scope 2, Plant A vs Plant B breakdowns, or Original vs Restated figures).
+* Verify whether ALL distinct values reported for the same KPI were successfully captured as separate rows in Task 2.
+* **If ANY distinct value, regional breakdown, or multi-location disclosure for a KPI was omitted or merged into a single number in Task 2**, output the complete multi-value breakdown in a dedicated Markdown table:
 
-`| Metric | Omitted / Additional Distinct Value | Unit | Page Source (PDF#) | Section | Discrepancy & Boundary Details |`
+`| Metric Name | Value 1 (Context & Source) | Value 2 (Context & Source) | Value 3 (Context & Source) | Multiple Values Disclosed? | Extraction Audit Status | Discrepancy & Boundary Details |`
 
 ### Part C: Final Metric Coverage Checklist (QC Mode)
-Output a final summary table verifying coverage across all requested domains:
+Output a final summary table verifying coverage across all requested domains, explicitly auditing whether multiple reported values exist for each KPI:
 
-`| Domain / Metric | Status (Found / Not Disclosed / Immaterial) | Page Source / Notes |`
+`| Domain / Metric | Status (Found / Not Disclosed / Immaterial) | Multiple Reported Values Available? (Yes/No - List All Values & Context) | Page Source / Notes |`
 
 *End of Task 4. Prompt user: "⏸️ All Extraction Tasks Complete! Your comprehensive FY25 ESG audit is finished."*

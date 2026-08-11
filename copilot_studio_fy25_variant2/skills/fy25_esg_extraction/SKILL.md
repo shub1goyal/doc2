@@ -272,12 +272,12 @@ Actively audit the uploaded document(s) to verify whether any KPI appeared with 
 ### Part C: Final Metric Coverage Checklist (QC Mode)
 Output a final summary table verifying coverage across all requested domains, explicitly auditing whether multiple reported values exist for each KPI:
 
-*End of Task 4. Immediately proceed to Task 5 (Consolidated Excel Workbook Generation) without pausing or asking for user input.*
+*End of Task 4. Prompt user: "⏸️ All Extraction Tasks 1–4 & QC Audits Complete! Type 'excel' (or 'download') to generate and download your consolidated [Company_Name]_FY25_ESG_Report.xlsx workbook."*
 
 -------------------------------------------------------------------------------
-Task 5: Consolidated Excel Workbook (.xlsx) Generation (AUTOMATIC EXECUTION)
+Task 5: Consolidated Excel Workbook (.xlsx) Generation (Dedicated Turn 2)
 -------------------------------------------------------------------------------
-Compile and generate a downloadable, multi-tab Microsoft Excel Workbook (`.xlsx`) containing all structured extraction outputs from Tasks 1 through 4.
+Compile and generate a downloadable, multi-tab Microsoft Excel Workbook (`.xlsx`) containing all structured extraction outputs from Tasks 1 through 4 when triggered by the user typing "excel", "download", "generate", or "next".
 
 Excel Workbook Specifications:
 1. **Dynamic File Naming Rule:** Set the Excel file name strictly using the exact Company Name identified in Task 1:
@@ -288,4 +288,4 @@ Excel Workbook Specifications:
    - **Sheet 3 (`Task 3 - YoY Variance`):** Environmental KPIs and Consolidated Revenue YoY variance table (`((FY25 - FY24)/FY24)*100`), variance direction, reason type (direct/related), and qualitative explanations.
    - **Sheet 4 (`Task 4 - Auditor & QC Report`):** Missing information & immateriality notes (Part A), Multi-Location & multiple reported values verification table (Part B), and Final metric coverage checklist (Part C).
 
-*End of Task 5. Prompt user: "⏸️ All Extraction Tasks & Excel Workbook Generation Complete! Your comprehensive FY25 ESG audit is finished."*
+*End of Task 5. Prompt user: "⏸️ Excel Workbook Generation Complete! Your consolidated [Company_Name]_FY25_ESG_Report.xlsx is ready for download."*

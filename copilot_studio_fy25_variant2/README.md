@@ -1,19 +1,21 @@
-# Microsoft Copilot Studio — FY25 ESG Master Agent & Skill (Variant 2: Automated Single-Turn)
+# Microsoft Copilot Studio — FY25 ESG Master Agent & Skill (Variant 2: Dedicated Excel Turn)
 
-This directory contains the setup files for **Variant 2** of the FY25 Corporate ESG Data Extraction Agent. In Variant 2, **the user does NOT need to type 'next' between tasks** — all 5 extraction tasks run automatically 1-by-1 in order within a single automated response stream.
+This directory contains the setup files for **Variant 2** of the FY25 Corporate ESG Data Extraction Agent. In Variant 2:
+1. **Turn 1 (Tasks 1–4 Automated Stream):** Tasks 1, 2, 3, and 4 run automatically in sequence within a single continuous response stream without requiring 'next' prompts.
+2. **Turn 2 (Dedicated Task 5 Excel Generation):** When the user types "excel" (or "download"), Task 5 executes in its own dedicated turn to generate and deliver the consolidated `[Company_Name]_FY25_ESG_Report.xlsx` workbook without hitting single-turn token ceilings or HTTP timeouts.
 
 ---
 
 ## 📁 Files Included
 
-1. **`skills/fy25_esg_extraction/SKILL.md`**: The official Agent Custom Skill file (with YAML frontmatter header) configured for automated single-turn unpaused 5-task extraction.
-2. **`00_main_agent_instruction.txt`**: The Orchestrator prompt for Copilot Studio's Main Agent (Variant 2). Guides automated unpaused execution across all 5 tasks without 'type next' prompts.
+1. **`skills/fy25_esg_extraction/SKILL.md`**: The official Agent Custom Skill file (with YAML frontmatter header) configured for automated Tasks 1–4 stream + dedicated Task 5 Excel generation turn.
+2. **`00_main_agent_instruction.txt`**: The Orchestrator prompt for Copilot Studio's Main Agent (Variant 2).
 3. **`copilot_studio_esg_2025_prompt.txt`**: Master prompt file for direct text copy-pasting or Knowledge Base upload.
 4. **`README.md`**: This configuration and setup guide.
 
 ---
 
-## 🛠️ Copilot Studio Architecture & Flow (Variant 2: Automated Single-Turn)
+## 🛠️ Copilot Studio Architecture & Flow (Variant 2: Two-Phase Execution)
 
 ```
                                ┌──────────────────────────────────────────────┐
@@ -28,6 +30,7 @@ This directory contains the setup files for **Variant 2** of the FY25 Corporate 
                                                      │
                                                      ▼
 ┌────────────────────────────────────────────────────────────────────────────────────────────────────────┐
+│ TURN 1 AUTOMATED STREAM:                                                                              │
 │ Task 1: Scope & Operational Audit ──► (Automated Unpaused Continuation)                                │
 │   ↓                                                                                                    │
 │ Task 2: ESG & Financial Data (FY25 STRICT ONLY) ──► (Automated Unpaused Continuation)                   │
@@ -36,7 +39,11 @@ This directory contains the setup files for **Variant 2** of the FY25 Corporate 
 │   ↓                                                                                                    │
 │ Task 4: Auditor & QC Mode Combined (Part A: Auditor, Part B: Multi-Location Audit, Part C: Coverage)   │
 │   ↓                                                                                                    │
-│ Task 5: Consolidated Excel Workbook (.xlsx) Generation ──► Output: Company-Named Multi-Tab .xlsx File  │
+│ PAUSE PROMPT: "Type 'excel' to generate [Company_Name]_FY25_ESG_Report.xlsx workbook."                 │
+├────────────────────────────────────────────────────────────────────────────────────────────────────────┤
+│ TURN 2 DEDICATED EXCEL GENERATION:                                                                     │
+│ User: "excel" ──► Task 5: Consolidated Excel Workbook (.xlsx) Generation                               │
+│ Output: Downloadable [Company_Name]_FY25_ESG_Report.xlsx Multi-Tab Excel Workbook                      │
 └────────────────────────────────────────────────────────────────────────────────────────────────────────┘
 ```
 

@@ -14,8 +14,9 @@ SYSTEM EXECUTION & GLOBAL MANDATORY RULES (APPLY TO ALL TASKS)
 2. **STRICT TASK STEP ISOLATION & TARGET YEAR ISOLATION (NO MULTI-YEAR BLEED IN TASK 2):**
    - Execute ONLY ONE TASK AT A TIME.
    - Do NOT run all tasks in a single response or look ahead to future task instructions.
-   - **TARGET YEAR ISOLATION RULE (TASK 2):** Extract strictly FY25 target period data ONLY into Task 2 tables. DO NOT extract prior year numbers (FY24, FY23, FY22, etc.) or multi-year comparative trend tables during Task 2.
-   - **1-YEAR PRIOR BASELINE RULE (TASK 3):** Prior year comparative data is strictly restricted to Task 3, limited to the immediately preceding year (FY24) for 1-year YoY variance analysis (`((FY25 - FY24)/FY24)*100`). Strictly DO NOT extract multi-year historical data prior to FY24.
+   - **DEFAULT TARGET PERIOD (FY25 STRICT):** Extract strictly FY25 target period data ONLY into Task 2 tables by default. DO NOT extract unprompted prior year numbers (FY24, FY23, etc.) or multi-year comparative trend tables during Task 2.
+   - **EXPLICIT USER YEAR OVERRIDE RULE:** If the user prompt explicitly requests or specifies data for additional fiscal years (e.g. "extract FY24 data as well", "include FY23 and FY24", "extract FY22 to FY25"), honor the explicit request and extract the user's requested historical years into the extraction tables.
+   - **1-YEAR PRIOR BASELINE RULE (TASK 3):** Prior year comparative data for Task 3 defaults to the immediately preceding year (FY24) for 1-year YoY variance analysis (`((FY25 - FY24)/FY24)*100`), unless the user explicitly requests a custom multi-year comparison.
 
 3. **SOCIAL & GOVERNANCE DATA EXCLUSION:**
    - Do NOT include social and governance data in the output. This includes, but is not limited to: employee numbers, diversity ratios (male/female, ethnicity), safety metrics (LTIR, TRIR), training hours, board composition, and community donations, unless a figure is explicitly part of a financial business segment description.
@@ -135,10 +136,10 @@ Audit the company's reporting scope and output the following key-value summary:
 *End of Task 1. Prompt user: "⏸️ Task 1 Complete! Type 'next' to proceed to Task 2 (Comprehensive ESG & Financial Metrics Data)."*
 
 -------------------------------------------------------------------------------
-Task 2: Comprehensive ESG & Financial Metrics Data (FY25 STRICT ONLY)
+Task 2: Comprehensive ESG & Financial Metrics Data (FY25 DEFAULT / USER-SPECIFIED PERIOD)
 -------------------------------------------------------------------------------
-Extract all environmental metrics, financial revenues, and segment/product qualitative descriptions for 2025 into dedicated Markdown tables.
-*CRITICAL MANDATE:* Extract STRICTLY FY25 data ONLY. DO NOT extract prior year numbers (FY24, FY23, etc.) or multi-year comparative tables into Task 2.
+Extract all environmental metrics, financial revenues, and segment/product qualitative descriptions for 2025 (or user's explicitly requested fiscal years) into dedicated Markdown tables.
+*CRITICAL MANDATE:* By default, extract STRICTLY FY25 data ONLY. DO NOT extract unprompted prior year numbers (FY24, FY23, etc.) into Task 2. UNLESS the user prompt explicitly requests additional fiscal years (e.g. "extract FY24 as well"), in which case extract the requested years.
 
 Table Columns for Environmental Tables (GHG, Water, Waste, Energy, Air Pollutants):
 `| Metric | Value | Unit | Page Source (PDF#) | Section | Reporting Boundary |`

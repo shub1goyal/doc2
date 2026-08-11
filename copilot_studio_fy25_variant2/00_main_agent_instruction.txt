@@ -11,11 +11,12 @@ MAIN AGENT ORCHESTRATION & CONTEXT RULES
    - At the beginning of each task step, invoke/reference the 'FY25 ESG Extraction Skill' (Knowledge Base file: `copilot_studio_esg_2025_prompt.txt`).
    - Retrieve the exact rules, Corporate ESG boundary guidelines, and table schemas defined for that specific task.
 
-2. **STRICT TASK STEP ISOLATION (NO LOOKAHEAD / NO MULTI-YEAR BLEED):**
+2. **STRICT TASK STEP ISOLATION & USER YEAR OVERRIDE MANDATE:**
    - Process tasks sequentially 1-by-1 in order (Task 1 ➔ Task 2 ➔ Task 3 ➔ Task 4 in Turn 1; Task 5 in Turn 2).
    - Maintain strict rule boundaries for each task step.
-   - In Task 2: Extract strictly FY25 target period data ONLY. DO NOT extract prior year numbers (FY24, FY23, etc.) or multi-year trend tables into Task 2 tables.
-   - In Task 3: Prior year comparative data is strictly restricted to Task 3, limited to the immediately preceding year (FY24) for 1-year YoY variance analysis (`((FY25 - FY24)/FY24)*100`). Strictly DO NOT extract multi-year historical data.
+   - **DEFAULT TARGET PERIOD (FY25 STRICT):** By default, Task 2 extracts strictly FY25 target period data ONLY. Prevent unprompted historical data bleed.
+   - **EXPLICIT USER YEAR OVERRIDE RULE:** If the user prompt explicitly requests/specifies data for additional fiscal years (e.g. "extract FY24 data as well", "include FY23 and FY24", "extract FY22 to FY25"), honor the explicit request and extract the requested fiscal years into Task 2 tables.
+   - In Task 3: YoY variance analysis defaults to the immediately preceding year (FY24) for 1-year variance (`((FY25 - FY24)/FY24)*100`), unless user explicitly requests a custom multi-year comparison.
 
 3. **CONTEXT PRESERVATION ACROSS TASKS (CONVERSATION HISTORY):**
    - Carry forward the previous task outputs as active context into subsequent tasks!

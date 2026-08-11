@@ -14,9 +14,12 @@ SYSTEM EXECUTION & GLOBAL MANDATORY RULES (APPLY TO ALL TASKS)
 1. **UNIVERSAL APPLICATION OF GLOBAL RULES:**
    - The System Execution Rules, Master Scope Rules, Immateriality Rules, and Multi-Page Scanning Rules documented here MUST BE FOLLOWED WITHOUT EXCEPTION IN EVERY SINGLE TASK.
 
-2. **STRICT TASK STEP ISOLATION & TARGET YEAR ISOLATION (NO MULTI-YEAR BLEED IN TASK 2):**
-   - Execute ONLY ONE TASK AT A TIME.
-   - Do NOT run all tasks in a single response or look ahead to future task instructions.
+2. **STRICT TASK STEP ISOLATION & SEQUENTIAL STEP-BY-STEP REASONING (NO BATCH THINKING):**
+   - **NO BATCH THINKING:** Do NOT analyze, process, or solve all tasks upfront in a single batch. You MUST execute tasks in a strict **Sequential Step-by-Step Lifecycle**:
+     - *Step 1:* Focus 100% of reasoning on Task 1 rules and PDF boundary analysis ➔ Render & output Task 1 report.
+     - *Step 2:* NOW, take Task 1 output as context ➔ Focus 100% of reasoning on Task 2 rules & table schemas ➔ Render & output Task 2 tables.
+     - *Step 3:* NOW, take Tasks 1 & 2 outputs as context ➔ Focus 100% of reasoning on Task 3 YoY variance rules ➔ Render & output Task 3 YoY Variance table.
+     - *Step 4:* NOW, take Tasks 1, 2 & 3 outputs as context ➔ Focus 100% of reasoning on Task 4 Auditor & QC rules ➔ Render & output Task 4 Auditor & QC report.
    - **DEFAULT TARGET PERIOD (FY25 STRICT):** Extract strictly FY25 target period data ONLY into Task 2 tables by default. DO NOT extract unprompted prior year numbers (FY24, FY23, etc.) or multi-year comparative trend tables during Task 2.
    - **EXPLICIT USER YEAR OVERRIDE RULE:** If the user prompt explicitly requests or specifies data for additional fiscal years (e.g. "extract FY24 data as well", "include FY23 and FY24", "extract FY22 to FY25"), honor the explicit request and extract the user's requested historical years into the extraction tables.
    - **1-YEAR PRIOR BASELINE RULE (TASK 3):** Prior year comparative data for Task 3 defaults to the immediately preceding year (FY24) for 1-year YoY variance analysis (`((FY25 - FY24)/FY24)*100`), unless the user explicitly requests a custom multi-year comparison.
@@ -136,7 +139,7 @@ Audit the company's reporting scope and output the following key-value summary:
 * **Materiality Assessment:** [Material topics identified & methodology] (PDF page #)
 * **GHG Base Year & SBTi Targets:** [Extract GHG base year, recalculation policy trigger (e.g. 5% structural change trigger), and Science-Based Target (SBTi) base year or 'Not Found'] (PDF page #)
 
-*End of Task 1. Immediately proceed to Task 2 (Comprehensive ESG & Financial Metrics Data) without pausing or asking for user input.*
+*End of Task 1. NOW take Task 1 output as context, focus reasoning on Task 2 ONLY, and output Task 2 tables.*
 
 -------------------------------------------------------------------------------
 Task 2: Comprehensive ESG & Financial Metrics Data (FY25 DEFAULT / USER-SPECIFIED PERIOD)
@@ -231,7 +234,7 @@ Table Columns for Segment & Product Qualitative Descriptions (Table 6B):
 * **Group Entities & Subsidiaries Overview:** Subsidiaries, JVs, associates, key reporting entities and activities (PDF page #)
 * **Related ESG Reports / Links:** Other ESG/BRSR/CDP reports, web portals, or URLs mentioned + scope notes (PDF page #)
 
-*End of Task 2. Immediately proceed to Task 3 (YoY Variance Analysis) without pausing or asking for user input.*
+*End of Task 2. NOW take Tasks 1 & 2 outputs as context, focus reasoning on Task 3 ONLY, and output Task 3 YoY Variance table.*
 
 -------------------------------------------------------------------------------
 Task 3: YoY Variance Analysis (1-Year Prior FY24 Baseline, >=20% Change)
@@ -245,7 +248,7 @@ Rules:
 * Extract direct or related qualitative reasons (production volume, efficiency, facility start-up, boundary change, weather).
 * **STRICT 1-YEAR BASELINE RESTRICTION:** Retrieve ONLY FY24 values for comparison. Strictly DO NOT extract or analyze multi-year historical data prior to FY24 (e.g. FY23, FY22, FY21).
 
-*End of Task 3. Immediately proceed to Task 4 (Auditor & QC Mode Combined) without pausing or asking for user input.*
+*End of Task 3. NOW take Tasks 1, 2 & 3 outputs as context, focus reasoning on Task 4 ONLY, and output Task 4 Auditor & QC Report.*
 
 -------------------------------------------------------------------------------
 Task 4: Auditor & QC Mode Combined

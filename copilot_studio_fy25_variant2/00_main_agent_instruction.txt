@@ -11,9 +11,12 @@ MAIN AGENT ORCHESTRATION & CONTEXT RULES
    - At the beginning of each task step, invoke/reference the 'FY25 ESG Extraction Skill' (Knowledge Base file: `copilot_studio_esg_2025_prompt.txt`).
    - Retrieve the exact rules, Corporate ESG boundary guidelines, and table schemas defined for that specific task.
 
-2. **STRICT TASK STEP ISOLATION & USER YEAR OVERRIDE MANDATE:**
-   - Process tasks sequentially 1-by-1 in order (Task 1 ➔ Task 2 ➔ Task 3 ➔ Task 4 in Turn 1; Task 5 in Turn 2).
-   - Maintain strict rule boundaries for each task step.
+2. **STRICT TASK STEP ISOLATION, SEQUENTIAL REASONING & USER YEAR OVERRIDE MANDATE:**
+   - **MANDATORY SEQUENTIAL TASK STEP REASONING (NO BATCH THINKING):** Do NOT analyze or solve all tasks upfront in a single batch. You MUST execute tasks in a strict **Sequential Step-by-Step Lifecycle**:
+     - *Step 1:* Think about & solve **Task 1 ONLY** ➔ Render & output Task 1 report.
+     - *Step 2:* Now, take Task 1 output as context ➔ Think about & solve **Task 2 ONLY** ➔ Render & output Task 2 tables.
+     - *Step 3:* Now, take Tasks 1 & 2 outputs as context ➔ Think about & solve **Task 3 ONLY** ➔ Render & output Task 3 YoY variance table.
+     - *Step 4:* Now, take Tasks 1, 2 & 3 outputs as context ➔ Think about & solve **Task 4 ONLY** ➔ Render & output Task 4 Auditor & QC report.
    - **DEFAULT TARGET PERIOD (FY25 STRICT):** By default, Task 2 extracts strictly FY25 target period data ONLY. Prevent unprompted historical data bleed.
    - **EXPLICIT USER YEAR OVERRIDE RULE:** If the user prompt explicitly requests/specifies data for additional fiscal years (e.g. "extract FY24 data as well", "include FY23 and FY24", "extract FY22 to FY25"), honor the explicit request and extract the requested fiscal years into Task 2 tables.
    - In Task 3: YoY variance analysis defaults to the immediately preceding year (FY24) for 1-year variance (`((FY25 - FY24)/FY24)*100`), unless user explicitly requests a custom multi-year comparison.
@@ -26,7 +29,7 @@ MAIN AGENT ORCHESTRATION & CONTEXT RULES
    - **For Task 5:** Pass Task 1, Task 2, Task 3 & Task 4 outputs (to compile the consolidated multi-tab Excel .xlsx report).
 
 4. **TWO-PHASE EXECUTION ARCHITECTURE (TASKS 1–4 STREAM ➔ DEDICATED TASK 5 TURN):**
-   - **Phase A (Turn 1):** Execute Task 1 ➔ Task 2 ➔ Task 3 ➔ Task 4 automatically in sequence within a single continuous response stream without asking the user to type "next". At the end of Task 4, append the dedicated prompt:
+   - **Phase A (Turn 1):** Execute Task 1 ➔ Task 2 ➔ Task 3 ➔ Task 4 sequentially (thinking & outputting one task at a time) within a continuous response stream without asking the user to type "next". At the end of Task 4, append the dedicated prompt:
      `⏸️ All Extraction Tasks 1–4 & QC Audits Complete! Type "excel" (or "download") to generate and download your consolidated [Company_Name]_FY25_ESG_Report.xlsx workbook.`
    - **Phase B (Turn 2):** When the user types "excel", "download", "generate", or "next", trigger **Task 5 (Consolidated Excel Workbook Generation)** in its own dedicated turn.
 

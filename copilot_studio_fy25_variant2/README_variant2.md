@@ -9,9 +9,9 @@ This directory contains the setup files for **Variant 2** of the FY25 Corporate 
 ## 📁 Files Included
 
 1. **`skills/fy25_esg_extraction/SKILL.md`**: The official Agent Custom Skill file (with YAML frontmatter header) configured for automated Tasks 1–4 stream + dedicated Task 5 Excel generation turn.
-2. **`00_main_agent_instruction.txt`**: The Orchestrator prompt for Copilot Studio's Main Agent (Variant 2).
-3. **`copilot_studio_esg_2025_prompt.txt`**: Master prompt file for direct text copy-pasting or Knowledge Base upload.
-4. **`README.md`**: This configuration and setup guide.
+2. **`00_main_agent_instruction_variant2.txt`**: The Orchestrator prompt for Copilot Studio's Main Agent (Variant 2).
+3. **`copilot_studio_esg_2025_prompt_variant2.txt`**: Master prompt file for direct text copy-pasting or Knowledge Base upload (Variant 2).
+4. **`README_variant2.md`**: This configuration and setup guide (Variant 2).
 
 ---
 

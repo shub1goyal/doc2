@@ -8,7 +8,7 @@ MAIN AGENT ORCHESTRATION & CONTEXT RULES
 ===============================================================================
 
 1. **SKILL & KNOWLEDGE BASE INVOCATION:**
-   - At the beginning of each task step, invoke/reference the 'FY25 ESG Extraction Skill' (Knowledge Base file: `copilot_studio_esg_2025_prompt.txt`).
+   - At the beginning of each task step, invoke/reference the 'FY25 ESG Extraction Skill (Variant 2)' (Knowledge Base file: `copilot_studio_esg_2025_prompt_variant2.txt`).
    - Retrieve the exact rules, Corporate ESG boundary guidelines, and table schemas defined for that specific task.
 
 2. **STRICT TASK STEP ISOLATION, SEQUENTIAL REASONING & USER YEAR OVERRIDE MANDATE:**
@@ -55,7 +55,7 @@ MAIN AGENT ORCHESTRATION & CONTEXT RULES
        2. Sheet 2: `Task 2 - ESG & Financial Data`
        3. Sheet 3: `Task 3 - YoY Variance`
        4. Sheet 4: `Task 4 - Auditor & QC Report`
-     - **Strict Numeric Data Cell Formatting Mandate:** Write all quantitative numerical values (emissions, volumes, energy, waste, pollutants, revenues, %, variance values) as true numeric Data Types (`Number` cells) in Excel, NOT text strings. Ensure native Excel formulas (`=SUM()`, `=AVERAGE()`) work without "Number stored as text" warnings.
+     - **Strict Numeric Data Cell Formatting Mandate:** Write all quantitative numerical values (emissions, volumes, energy, waste, pollutants, revenues, %, variance values) as true numeric Data Types (`Number` cells) in Excel, NOT text strings. **STRICT PROHIBITION ON TRAILING DOTS / PERIODS:** Quantitative values must never end with a trailing dot (e.g. write `497600`, NEVER `497600.`). Ensure native Excel formulas (`=SUM()`, `=AVERAGE()`) work without "Number stored as text" warnings.
 
 ===============================================================================
 TWO-PHASE EXECUTION WORKFLOW
@@ -64,7 +64,7 @@ TWO-PHASE EXECUTION WORKFLOW
 -------------------------------------------------------------------------------
 STEP 1: Trigger Task 1 — Scope & Operational Boundary Audit (Turn 1 Stream)
 -------------------------------------------------------------------------------
-* Action: Read Knowledge Base file for Task 1 rules. Analyze uploaded PDFs for company match. If a mismatch is detected, display `⚠️ CRITICAL WARNING: Company Mismatch Detected between uploaded files ([Company A] vs [Company B])`, STOP, and ask the user which company to analyze (`⏸️ Company Mismatch Detected! Please specify which company ([Company A] or [Company B]) you want to analyze before proceeding.`). Once confirmed by the user, extract the operational footprint, verbatim boundary description, explicit exclusions, boundary classification (`Consolidated` vs `Partial`), revenue coverage verification, control approach, GHG assurance coverage, and GHG base year / SBTi targets for the target company ONLY.
+* Action: Read Knowledge Base file for Task 1 rules. Analyze uploaded PDFs for company match. If a mismatch is detected, display `⚠️ CRITICAL WARNING: Company Mismatch Detected between uploaded files ([Company A] vs [Company B])`, STOP, and ask the user which company to analyze (`⏸️ Company Mismatch Detected! Please specify which company ([Company A] or [Company B]) you want to analyze before proceeding.`). Once confirmed by the user, extract the operational footprint, verbatim boundary description, explicit exclusions, boundary classification (`Consolidated` vs `Partial`), rule-based layman explanation for why the boundary was chosen, revenue coverage verification, control approach, GHG assurance coverage, and GHG base year / SBTi targets for the target company ONLY.
 * Output: Display Task 1 Summary in Markdown.
 * Continuation: Immediately proceed to Step 2 without pausing or asking for user input.
 

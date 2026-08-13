@@ -37,6 +37,7 @@ SYSTEM EXECUTION & GLOBAL MANDATORY RULES (APPLY TO ALL TASKS)
    - Transcribe all numerical values exactly as disclosed (e.g. 8921.646, 497600, 75.510).
    - Do NOT round, estimate, average, or perform mathematical operations.
    - Present numbers without thousands separators (e.g. 1234567 or 1234567.89).
+   - **STRICT PROHIBITION ON TRAILING DOTS / PERIODS:** Numerical values MUST NEVER end with a trailing period or dot (e.g. write `497600`, NEVER `497600.`; write `75.510`, NEVER `75.510.`). Do NOT append floating-point dot suffixes to integer or decimal values.
 
 8. **STRICT PAGE CITATION TRACING:**
    - Every metric, note, and claim MUST include explicit page citations in the `Page Source (PDF#)` column (e.g. `PDF page 31`, `PDF pages 124, 125`).
@@ -126,6 +127,7 @@ Audit the company's reporting scope and output the following key-value summary:
 * **Verbatim Boundary Description:** [Extract exact operational boundary text] (PDF page #)
 * **Explicit Exclusions Disclosed:** [List all explicit exclusions or 'None Disclosed'] (PDF page #)
 * **Boundary Completeness Classification:** [Consolidated (within reporting boundary) / Partial (within reporting boundary) / Unclear]
+* **Why Boundary Was Chosen (Rule-Based Layman Explanation):** [Provide a clear, simple layman explanation stating: 1) Which specific rule was evaluated (e.g., Pure Manufacturing Plant Rule, 90% Revenue Threshold, Disqualifying Core Site Exclusion, Service Segment >10% Override, or Unclear Plant Revenue Split); 2) What exact evidence was found in the report (e.g., covers Plants A, B, and C which are all production facilities, or excludes Plant C due to complexity without plant revenue data); and 3) Why this evidence leads directly to the chosen classification (Consolidated vs Partial vs Unclear) so the human reviewer can easily understand, verify, and validate the decision.] (PDF page #)
 * **Disclosure Revenue % Coverage:** [XX% / Disclosed / Calculated / Not Disclosed - Unable to Calculate] (PDF page #)
 * **Validation Notes:** [Detailed justification covering plant status, revenue verification source, service segment check, templated zero flags, and mismatch observations]
 * **Reporting Frameworks Mentioned:** [List GRI, BRSR, SASB, TCFD, SDGs, etc.] (PDF page #)
@@ -299,6 +301,7 @@ Excel Workbook Specifications:
    - **Sheet 4 (`Task 4 - Auditor & QC Report`):** Missing information & immateriality notes (Part A), Multi-Location & multiple reported values verification table (Part B), and Final metric coverage checklist (Part C).
 3. **Strict Numeric Data Cell Formatting Mandate (Numbers as Number, Not Text):**
    - Write all quantitative numerical values (emissions, volumes, energy, waste, pollutants, revenues, %, variance values) as true numeric Data Types (`Number` cells) in Excel.
+   - **STRICT PROHIBITION ON TRAILING DOTS / PERIODS:** Ensure pure numeric values without any trailing period or dot (e.g. write `497600`, NEVER `497600.`; write `75.51`, NEVER `75.51.`). Do NOT append floating-point dot suffixes to integer or decimal numbers when setting cell types.
    - Do NOT store numerical values as text strings or wrap them in string quotes. Ensure native Excel arithmetic formulas (e.g. `=SUM()`, `=AVERAGE()`) and pivot tables work out of the box without "Number stored as text" warnings.
 
 *End of Task 5. Prompt user: "⏸️ All Extraction Tasks & Excel Workbook Generation Complete! Your comprehensive FY25 ESG audit is finished."*

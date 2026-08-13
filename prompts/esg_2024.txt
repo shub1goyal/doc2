@@ -77,7 +77,7 @@ PM is different from PM 2.5 and PM 10.
 
 *   **FOLLOW-UP CITATION RULE:** In any follow-up answer or additional question response, every extracted claim/value must include page number citation(s).
 
-*   **NUMERICAL FORMATTING:** Present all numerical values without commas (e.g., 1234567 or 1234567.89). Preserve decimal points exactly as they appear. Do not remove decimal points.
+*   **NUMERICAL FORMATTING:** Present all numerical values without commas (e.g., 1234567 or 1234567.89). Preserve decimal points exactly as they appear. Do not remove decimal points. **STRICT PROHIBITION ON TRAILING DOTS / PERIODS:** Numerical values MUST NEVER end with a trailing period or dot (e.g. write `497600`, NEVER `497600.`; write `75.510`, NEVER `75.510.`). Do NOT append floating-point dot suffixes to integer or decimal numbers.
 
 *   **TABLE OUTPUT FORMAT (SIMPLIFIED):** Do not pre-render large template tables with many blank rows. Instead, for each section, output a table using only the required column headers listed in this prompt, then add rows only for requested metrics and discovered values.
 
@@ -127,6 +127,7 @@ PM is different from PM 2.5 and PM 10.
 *   Verbatim Boundary Description: [Extract the MOST SPECIFIC operational boundary statement available. Prefer the BRSR section boundary or the assurance statement boundary over the general introduction. List all boundary statements in order from most specific to least specific.] (Page #)
 *   Explicit Exclusions Disclosed: [List all explicit exclusions mentioned, or write 'None Disclosed'] (Page #)
 *   Boundary Completeness Classification: [Classify as 'Consolidated (within reporting boundary)', 'Partial (within reporting boundary)', or 'Unclear']
+*   Why Boundary Was Chosen (Rule-Based Layman Explanation): [Provide a clear, simple layman explanation stating: 1) Which specific rule was evaluated (e.g., Pure Manufacturing Plant Rule, 90% Revenue Threshold, Disqualifying Core Site Exclusion, Service Segment >10% Override, or Unclear Plant Revenue Split); 2) What exact evidence was found in the report (e.g., covers Plants A, B, and C which are all production facilities, or excludes Plant C due to complexity without plant revenue data); and 3) Why this evidence leads directly to the chosen classification (Consolidated vs Partial vs Unclear) so the human reviewer can easily understand, verify, and validate the decision.] (Page #)
 *   Disclosure Revenue % Coverage: [Disclose % value if stated, OR 'XX% (Calculated via Geographical/Income Statement Revenue)', OR 'Not Disclosed - Unable to Calculate'] (Page #)
 *   Validation Notes: [Mandatory field. Explain the reasoning for your classification in detail. Cover manufacturing plant status, revenue verification source, and any mismatch observations.]
 *   Reporting Frameworks Mentioned: [List all specific reporting frameworks found anywhere in the document] (Page #)

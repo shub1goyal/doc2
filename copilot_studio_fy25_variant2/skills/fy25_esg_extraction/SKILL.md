@@ -55,6 +55,7 @@ SYSTEM EXECUTION & GLOBAL MANDATORY RULES (APPLY TO ALL TASKS)
    - **No Page Merging for Differing Values:** You MUST NEVER combine multiple page numbers onto a single row if the numerical values or decimal representations differ in ANY way.
 
 10. **PER-KPI REPORTING BOUNDARY & MANDATORY 'CONSOLIDATED' / 'PARTIAL' TAGGING:**
+    - **STRICT TABLE-SPECIFIC BOUNDARY ISOLATION:** Do NOT copy-paste or spill the GHG organizational boundary into Water, Waste, Energy, or Pollutant tables! Inspect the specific section for each KPI and extract its exact section-level boundary.
     - For every table row, the `Reporting Boundary` cell MUST be prefixed with either **`Consolidated`** or **`Partial`** in parentheses.
     - Examples: `Consolidated (All domestic and overseas sites and subsidiaries)`, `Partial (Changwon Plant)`, `Partial (3 Domestic Manufacturing Sites)`.
 
@@ -188,11 +189,11 @@ Table Columns for Segment & Product Qualitative Descriptions (Table 6B):
 * Scope 3 Category 15: Investments
 * Additional plant-wise, facility-wise, or gas-wise GHG breakdowns disclosed
 
-### Table 2: Water Data
+### Table 2: Water Data (Strictly Water Volumes Only — No Pollutants)
 * Total Water Withdrawal
 * Water Withdrawal by Source (Surface, Groundwater, Seawater, Produced Water, Third-Party)
 * Total Water Consumption
-* Total Water Discharge (by destination & treatment level)
+* Total Water Discharge (including Waste Water Discharge, by destination & treatment level)
 * Water Recycled / Reused (Volume & %)
 * Water Stress Area Disclosures (Withdrawal/Consumption in high stress regions)
 
@@ -209,12 +210,19 @@ Table Columns for Segment & Product Qualitative Descriptions (Table 6B):
 * Non-Renewable Energy Consumption (Grid Electricity, Coal, Natural Gas, Diesel, Fuel Oil)
 * Electricity Consumption (Total, Renewable %, Grid %)
 
-### Table 5: Air Pollutants Data
-* NOx Emissions
-* SOx Emissions
-* Particulate Matter (PM10, PM2.5)
-* Volatile Organic Compounds (VOCs)
-* Hazardous Air Pollutants (HAPs / POPs)
+### Table 5: Air & Water Pollutants Data (Dedicated Pollutants Table)
+* Air Pollutants — NOx Emissions
+* Air Pollutants — SOx Emissions
+* Air Pollutants — Particulate Matter (PM10, PM2.5)
+* Air Pollutants — Volatile Organic Compounds (VOCs)
+* Air Pollutants — Hazardous Air Pollutants (HAPs / POPs)
+* Water Pollutants — Phosphorus / Total P Disclosed
+* Water Pollutants — Nitrogen / Total N Disclosed
+* Water Pollutants — Chemical Oxygen Demand (COD)
+* Water Pollutants — Biological Oxygen Demand (BOD)
+* Water Pollutants — Total Suspended Solids (TSS)
+* Water Pollutants — Heavy Metals Disclosed (Lead, Mercury, Cadmium, Chromium, etc.)
+* Water Pollutants — Oil & Grease Disclosed
 
 ### Table 6A: Financials & Revenue Data
 * Consolidated Revenue

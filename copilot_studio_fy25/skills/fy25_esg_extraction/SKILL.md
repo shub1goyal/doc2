@@ -66,7 +66,8 @@ SYSTEM EXECUTION & GLOBAL MANDATORY RULES (APPLY TO ALL TASKS)
     - **Scope 1 & 2 Total Rule:** Only populate `GHG Total Emissions (Scopes 1 & 2)` if explicitly pre-calculated in the report. Do not add Scopes 1 and 2 yourself.
     - **Carbon Emissions vs CO2e Rule:** "Carbon emission(s)" without "equivalent" or "e" = CO2 (not CO2e) for FY23+.
     - **Vague Refrigerants:** If report says "refrigerants" with no gas type/blend constituents, do not extract quantitative values — flag as "Vague refrigerant disclosure — constituents not specified" in Validation Notes.
-    - **Water Consumption vs Usage:** "Water usage" is NOT equivalent to "Water consumption". Extract into Total Water Consumption ONLY if explicitly labeled "consumption".
+    - **Water Consumption vs Usage & Evidence Rule:** "Water usage" is NOT automatically equivalent to "Water consumption". You MUST check whether the document provides explicit framework evidence (such as GRI 303 tables, BRSR disclosures, footnotes, or section headers) indicating whether "water usage" represents `Total Water Withdrawal` (GRI 303-3) or `Total Water Consumption` (GRI 303-5). If framework evidence is present, extract into the corresponding withdrawal/consumption row and note the evidence source. If no evidence exists, flag as "Water usage without explicit GRI/framework classification".
+    - **Water Sources in Paragraphs / Narrative Text:** You MUST scan narrative body paragraphs and footnotes (e.g., text stating *"water is sourced from municipal supply, groundwater wells, rainwater harvesting"*). Extract all water source disclosures found in paragraphs into `Water Withdrawal by Source Breakdown`, citing the exact source type and PDF page number.
     - **Water Stress Segregation:** Extract water stress data into the water-stressed table only. Ignore site-level breakdowns, capture totals only.
     - **Forbidden Financial Metrics:** Extract ONLY Consolidated, Standalone, Segment, and Product Revenue rows. FORBIDDEN financials: PAT, EBITDA, EBIT, dividends, assets, liabilities, borrowings, cash flow, EPS, share capital, tax, provisions.
 
@@ -78,12 +79,13 @@ SYSTEM EXECUTION & GLOBAL MANDATORY RULES (APPLY TO ALL TASKS)
 MASTER SCOPE & BOUNDARY AUDIT RULES (CORPORATE ESG METHODOLOGY)
 ===============================================================================
 
-*   **Boundary Prioritization Hierarchy:**
-    1. **Financial Control:** Group consolidated entities / Financial statements scope.
-    2. **Equity Share:** Ownership percentage / Equity stake.
-    3. **Operational Control:** Day-to-day operating control / Operating license.
-    4. **Other Disclosed Criteria:** Specific site/facility counts.
-    5. **No Approach Disclosed.**
+*   **Boundary Prioritization Hierarchy & GHG Organizational Approach:**
+    1. **Financial Control:** Financial consolidation / Consolidated entities / Fully consolidated / Majority of ownership.
+    2. **Equity Share:** Equity stake / Net-asset value.
+    3. **Operational Control:** Operating control / Operations it controls (e.g., day-to-day running, operating license).
+    4. **Other Boundary Criteria Disclosed:** Disclosing specific boundaries (e.g., X amount of companies/facilities/offices/production sites) that do not fall under the first 3 control/equity definitions.
+    5. **No Approach Disclosed:** Disclosing just text or tables with no supporting scope or boundary information.
+    *   If the company reports multiple boundaries, choose the one matching the absolute values incorporated, in accordance with the above hierarchy (Financial Control > Equity Share > Operational Control).
 
 *   **Special Manufacturing Plant & Service Segment Override:**
     - Pure manufacturing entity covering ALL production plants (sales offices excluded) ➔ Classify as **`Consolidated (within reporting boundary)`**.
@@ -95,9 +97,9 @@ MASTER SCOPE & BOUNDARY AUDIT RULES (CORPORATE ESG METHODOLOGY)
     - NEVER accept coverage percentages based on employee headcount or floor area as revenue coverage (mark `Not disclosed - unable to calculate`).
     - Covered Revenue >= 90% ➔ **`Consolidated`**. Covered Revenue < 90% ➔ **`Partial`**.
 
-*   **Exclusion Matrix:**
-    - Allowed Exclusions (Do not break Consolidation): Franchises, Branding, Suppliers, Contractors, Indirect Subsidiaries, Discontinued/Acquired operations in current FY.
-    - Disqualifying Exclusions (Forces Partial): Domestic-only (<90% Rev), Major-only sites, omitted core plants, omitted service divisions (>10% Rev).
+*   **Exclusion Classification Matrix:**
+    - **Allowed Exclusions (Do not break Consolidation):** Franchises, Branding, Suppliers, Partners, Contractors, Indirect Subsidiaries, Discontinued or Acquired companies in the current FY.
+    - **Disqualifying Exclusions (Forces Partial):** Major-only sites, domestic-only operations (<90% revenue), omitted core manufacturing plants, omitted service divisions (>10% revenue), data unavailability for core direct group entities.
 
 *   **Special Routing Rules:**
     - **Holding/Investment Entities (20%-50% Associates):** Apportion Scope 1 & 2 emissions of 20%-50% associates by equity share and route into **Scope 3 Category 15 (Investments)**.
@@ -130,7 +132,7 @@ Audit the company's reporting scope and output the following key-value summary:
 * **Disclosure Revenue % Coverage:** [XX% / Disclosed / Calculated / Not Disclosed - Unable to Calculate] (PDF page #)
 * **Validation Notes:** [Detailed justification covering plant status, revenue verification source, service segment check, templated zero flags, and mismatch observations]
 * **Reporting Frameworks Mentioned:** [List GRI, BRSR, SASB, TCFD, SDGs, etc.] (PDF page #)
-* **GHG Organizational Approach:** [Financial Control / Equity Share / Operational Control / Other Criteria / No Approach] (PDF page #)
+* **GHG Organizational Approach:** [Financial Control (Financial consolidation/majority ownership) / Equity Share (Net-asset value) / Operational Control (Operating license/day-to-day control) / Other Disclosed Criteria / No Approach Disclosed] (PDF page #)
 * **GHG Assurance Coverage:** [Text describing GHG verification scope] (PDF page #)
 * **GHG Assurance Standard:** [ISAE 3000, ISO 14064-3, etc.] (PDF page #)
 * **GHG Assurance Level:** [Limited / Reasonable / Other] (PDF page #)
@@ -296,5 +298,8 @@ Excel Workbook Specifications:
    - **Sheet 2 (`Task 2 - ESG & Financial Data`):** All Task 2 data tables (GHG Emissions, Water, Waste, Energy, Air Pollutants, Financial Revenues, Immateriality & Restatement detail rows, Segment & Product Qualitative Descriptions, and Business Overview context).
    - **Sheet 3 (`Task 3 - YoY Variance`):** Environmental KPIs and Consolidated Revenue YoY variance table (`((FY25 - FY24)/FY24)*100`), variance direction, reason type (direct/related), and qualitative explanations.
    - **Sheet 4 (`Task 4 - Auditor & QC Report`):** Missing information & immateriality notes (Part A), Multi-Location & multiple reported values verification table (Part B), and Final metric coverage checklist (Part C).
+3. **Strict Numeric Data Cell Formatting Mandate (Numbers as Number, Not Text):**
+   - Write all quantitative numerical values (emissions, volumes, energy, waste, pollutants, revenues, %, variance values) as true numeric Data Types (`Number` cells) in Excel.
+   - Do NOT store numerical values as text strings or wrap them in string quotes. Ensure native Excel arithmetic formulas (e.g. `=SUM()`, `=AVERAGE()`) and pivot tables work out of the box without "Number stored as text" warnings.
 
 *End of Task 5. Prompt user: "⏸️ All Extraction Tasks & Excel Workbook Generation Complete! Your comprehensive FY25 ESG audit is finished."*

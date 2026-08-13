@@ -47,13 +47,14 @@ PM is different from PM 2.5 and PM 10.
        - **Associate / Minority Interest (20%-50% ownership):** For holding or investment companies, do NOT add Scope 1 & 2 emissions of 20%-50% associates/minorities into direct Scope 1 & 2. Apportion their emissions by equity ownership % and classify them into **Scope 3 Category 15 (Investments)**.
        - **REIT Operating Lease Routing:** For Real Estate Investment Trusts (REITs), operating lease emissions from tenant-occupied properties MUST be routed into **Scope 3 Category 13 (Downstream Leased Assets)**.
 
-*   **GHG ORGANIZATIONAL APPROACH RULE:** If Scope 1 or Scope 2 emissions are disclosed, classifying the GHG Organizational Approach is mandatory. Select from the following hierarchy (prioritizing the first 3 control/equity approaches over the last 2):
+*   **GHG ORGANIZATIONAL APPROACH & TABLE BOUNDARY ISOLATION RULE:** If Scope 1 or Scope 2 emissions are disclosed, classifying the GHG Organizational Approach is mandatory. Select from the following hierarchy (prioritizing the first 3 control/equity approaches over the last 2):
     1. **Financial Control:** Financial consolidation / Consolidated entities / Fully consolidated / Majority of ownership.
     2. **Equity Share:** Equity stake / Net-asset value.
     3. **Operational Control:** Operating control / Operations it controls (e.g., day-to-day running, operating license).
     4. **Other Boundary Criteria Disclosed:** Disclosing specific boundaries (e.g., X amount of companies/facilities/offices/production sites) that do not fall under the first 3 control/equity definitions.
     5. **No Approach Disclosed:** Disclosing just text or tables with no supporting scope or boundary information.
     *   If the company reports multiple boundaries, choose the one matching the absolute values incorporated, in accordance with the above hierarchy (Financial Control > Equity Share > Operational Control).
+    *   **STRICT TABLE-SPECIFIC REPORTING BOUNDARY ISOLATION:** Do NOT copy-paste or spill the GHG organizational boundary into Water, Waste, Energy, or Pollutant tables! Inspect the specific section of the PDF for each metric and extract its section-level boundary (e.g. Consolidated vs Partial - Changwon Plant Only).
 
 *   **Revenue Verification & Missing AR Rule:** When a company reports covering specific, identifiable entities, you MUST determine if they account for >=90% of total revenue. **If the user has not uploaded the Annual Report and you cannot verify the revenue coverage, you MUST pause and explicitly ask the user to upload the Annual Report.**
 
@@ -191,7 +192,7 @@ Baseline GHG metrics to search and output as rows (minimum required):
 
 ---
 
-**Task 2B: Water Data**
+**Task 2B: Water Data (Strictly Water Volumes Only — No Pollutants)**
 
 **Water Data**
 
@@ -207,9 +208,10 @@ Baseline Water metrics to search and output as rows (minimum required):
 *   Total Water Consumption
 *   Water Consumption Breakdown (extract each source/category and include total)
 *   Total Water Withdrawal
-*   Water Withdrawal by Source Breakdown (extract each source)
-*   Total Water Discharge
+*   Water Withdrawal by Source Breakdown (extract each source: Surface, Groundwater, Seawater, Produced Water, Third-Party)
+*   Total Water Discharge (including Waste Water Discharge, by destination & treatment level)
 *   Water Discharge Breakdown (extract each destination/treatment/category and include total)
+*   Water Recycled / Reused (Volume & %)
 
 **Water Data in Water-Stressed Regions**
 
@@ -269,7 +271,7 @@ Baseline Waste Disposal/Treatment metrics to search (minimum; extract all disclo
 
 **Task 2D: Pollutants & Energy Data**
 
-**Air & Water Pollutants Data**
+**Air & Water Pollutants Data (Dedicated Pollutants Table)**
 
 Use a table with these columns:
 1. Metric
@@ -286,7 +288,14 @@ Baseline pollutant metrics to search and output as rows (minimum required):
 *   Air Pollutants: PM
 *   Air Pollutants: PM2.5
 *   Air Pollutants: PM10
-*   Water Pollutants (extract all provided)
+*   Air Pollutants: HAPs / POPs
+*   Water Pollutants: Phosphorus / Total P
+*   Water Pollutants: Nitrogen / Total N
+*   Water Pollutants: Chemical Oxygen Demand (COD)
+*   Water Pollutants: Biological Oxygen Demand (BOD)
+*   Water Pollutants: Total Suspended Solids (TSS)
+*   Water Pollutants: Heavy Metals Disclosed (Lead, Mercury, Cadmium, Chromium, etc.)
+*   Water Pollutants: Oil & Grease Disclosed
 
 **Energy Data**
 

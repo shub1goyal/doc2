@@ -1,46 +1,37 @@
-# Prompt Templates
+# Analyst AI Web App — System Prompt Templates
 
-This directory contains the default prompt templates used by Analyst AI.
+This directory contains the system prompt presets used by the **Analyst AI Web Application**.
 
-## Files
+---
 
-- `presets.json` - Configuration file that defines the available prompt presets
-- `esg_metrics_prompt.txt` - Prompt for ESG metrics analysis (currently the only default prompt)
+## 🏛️ Repository Architecture Context (Analyst AI vs Copilot Studio)
 
-## How It Works
+This repository contains **two distinct software projects**:
+1. **Analyst AI Web Application (`/prompts`)**:
+   - Single-turn LLM extraction prompt presets loaded directly by the Analyst AI Web App frontend.
+   - Files: `esg_2025.txt`, `esg_2024.txt`, `esg_2023.txt`, `esg_2022.txt`, `presets.json`.
+   - Optimized for single-prompt full ESG & Business extraction.
+2. **Microsoft Copilot Studio Agent Packages (`/copilot_studio_fy25` & `/copilot_studio_fy25_variant2`)**:
+   - Multi-turn Microsoft Copilot Studio agent orchestrator prompts, agent custom skills, and knowledge base files.
 
-1. The application loads only the default prompt from these files at startup
-2. User-created prompts are kept in memory only during the session (no localStorage)
-3. Default prompts cannot be deleted but can be copied and modified
-4. User-created prompts can be downloaded as files using the download button
+---
 
-## Managing Prompts
+## 📁 Files Included
 
-### Using Default Prompts
-- The default ESG prompt is loaded automatically when the application starts
-- It is marked with a "Default" badge in the UI
-- You cannot delete the default prompt, but you can create copies to modify
+- **`presets.json`**: Configuration file defining available prompt presets in the Web App UI.
+- **`esg_2025.txt`**: FY25 Default ESG & Financial Data Extraction Prompt.
+- **`esg_2024.txt`**: FY24 Default ESG & Financial Data Extraction Prompt.
+- **`esg_2023.txt`**: FY23 Default ESG & Financial Data Extraction Prompt.
+- **`esg_2022.txt`**: FY21/FY22 Default ESG & Financial Data Extraction Prompt.
+- **`dummy_esg.txt`**: Sample ESG extraction report file.
 
-### Creating New Prompts
-1. Click the "Add New Prompt" button in the prompt management modal
-2. Enter a name and content for your prompt
-3. Save the prompt (it will be stored in memory for the current session only)
-4. To save the prompt permanently, click the download button next to the prompt
+---
 
-### Adding New Default Prompts
-1. Create a new `.txt` file with your prompt content
-2. Add an entry to `presets.json` with:
-   - `id`: A unique identifier
-   - `name`: Display name for the prompt
-   - `file`: The filename of your prompt content
-   - `description`: Brief description of what the prompt does
+## ⚙️ Key Extraction Rules & Domain Features in `prompts/`
 
-Example:
-```json
-{
-  "id": "custom-prompt-1",
-  "name": "Custom Analysis",
-  "file": "custom_prompt.txt",
-  "description": "Performs custom analysis on documents"
-}
-```
+* **Strict Table-Specific Reporting Boundary Isolation**: Forbids copy-pasting or spilling GHG organizational boundaries into Water, Waste, Energy, or Pollutant tables. Forces section-specific boundary extraction for each KPI table.
+* **Strict Water Volume Data (Task 2B)**: Task 2B is strictly reserved for Water Volumes (Withdrawal by source, Consumption, Total Discharge including Waste Water Discharge, Recycled/Reused, Water Stress Area Disclosures). Pollutants are excluded from Task 2B.
+* **Dedicated Air & Water Pollutants Schema (Task 2D)**: Dedicated table for all pollutants:
+  - **Air Pollutants:** NOx, SOx, PM10, PM2.5, VOCs, HAPs / POPs.
+  - **Water Pollutants:** Phosphorus / Total P, Nitrogen / Total N, Chemical Oxygen Demand (COD), Biological Oxygen Demand (BOD), Total Suspended Solids (TSS), Heavy Metals (Lead, Mercury, Cadmium, Chromium), Oil & Grease.
+* **Default Target Year & Explicit User Multi-Year Override Mandate**: Defaults to the active target fiscal year for each prompt file, but honors explicit user requests if additional historical years are requested.

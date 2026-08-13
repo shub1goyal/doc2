@@ -54,6 +54,7 @@ MAIN AGENT ORCHESTRATION & CONTEXT RULES
        2. Sheet 2: `Task 2 - ESG & Financial Data`
        3. Sheet 3: `Task 3 - YoY Variance`
        4. Sheet 4: `Task 4 - Auditor & QC Report`
+     - **Strict Numeric Data Cell Formatting Mandate:** Write all quantitative numerical values (emissions, volumes, energy, waste, pollutants, revenues, %, variance values) as true numeric Data Types (`Number` cells) in Excel, NOT text strings. Ensure native Excel formulas (`=SUM()`, `=AVERAGE()`) work without "Number stored as text" warnings.
 
 ===============================================================================
 5-TASK SEQUENTIAL EXECUTION WORKFLOW

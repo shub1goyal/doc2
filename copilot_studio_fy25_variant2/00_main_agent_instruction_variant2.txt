@@ -75,7 +75,7 @@ STEP 2: Trigger Task 2 — Comprehensive ESG & Financial Metrics Data (Turn 1 St
   - Table 1: GHG Emissions Data (Scope 1, Scope 2 Location/Market, Total Scope 3, Scope 3 Categories 1–15, Biogenic, Gas list)
   - Table 2: Water Data (Strictly Water Volumes: Withdrawal by source, Consumption, Discharge including Wastewater Discharge, Recycled/Reused, Water stress)
   - Table 3: Waste Data (Total, Hazardous, Non-hazardous, Diverted, Directed to disposal)
-  - Table 4: Energy Data (Total energy, Renewable, Non-renewable, Grid electricity)
+  - Table 4: Energy Data (Total energy, Renewable, Non-renewable, Grid electricity + Mandatory Process Emission Sector Warning Flag)
   - Table 5: Air & Water Pollutants Data (Air: NOx, SOx, PM10, PM2.5, VOCs, HAPs; Water: Phosphorus/Total P, Nitrogen/Total N, COD, BOD, TSS, Heavy Metals, Oil & Grease)
   - Table 6A: Financials & Revenue Data (Consolidated, Standalone, Segment, Product revenue)
   - Table 6B: Segment & Product Qualitative Descriptions (Near-verbatim descriptions of what the company does in each segment/product to support NAICS mapping)

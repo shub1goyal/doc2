@@ -207,6 +207,12 @@ Table Columns for Segment & Product Qualitative Descriptions (Table 6B):
 * Renewable Energy Consumption (Solar, Wind, Hydro, Biomass)
 * Non-Renewable Energy Consumption (Grid Electricity, Coal, Natural Gas, Diesel, Fuel Oil)
 * Electricity Consumption (Total, Renewable %, Grid %)
+* **MANDATORY PROCESS EMISSION WARNING IN ENERGY DATA:**
+  - Scan disclosure to check if company operates in or reports energy for **Process Emission Segments / Activities** (e.g., chemical manufacturing, cement/clinker, metals/smelting, lime, glass, petrochemicals, refining, pulp & paper, mining/mineral processing, or any industrial processes where GHG emissions/energy arise from direct chemical reactions or feedstock transformation).
+  - Extract all quantitative energy figures exactly as disclosed (do not omit data).
+  - If a process emission segment or activity is detected or suspected, output directly beneath Table 4:
+    `⚠️ PROCESS EMISSION SECTOR WARNING: Potential process emission segment/activity detected in disclosures: [Identified Segment/Activity]. Action Required: Verify against internal process emission schedule/matrix to confirm if this segment qualifies as a process emission activity and take an appropriate data entry call.`
+  - If none detected, output: `Process Emission Check: No process emission segments detected in energy disclosures.`
 
 ### Table 5: Air & Water Pollutants Data (Dedicated Pollutants Table)
 * Air Pollutants — NOx Emissions

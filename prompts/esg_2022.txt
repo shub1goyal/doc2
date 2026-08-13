@@ -315,6 +315,14 @@ Baseline energy metrics to search and output as rows (minimum required):
 *   Renewable Energy Consumption
 *   Non-Renewable Energy Consumption
 
+*   **MANDATORY PROCESS EMISSION WARNING IN ENERGY DATA:**
+    - Scan the disclosure to determine if the company operates in or reports energy for **Process Emission Segments / Activities** (e.g., chemical manufacturing, cement/clinker, metals/smelting, lime, glass, petrochemicals, refining, pulp & paper, mining/mineral processing, or any industrial processes where GHG emissions/energy arise from direct chemical reactions or feedstock transformation).
+    - If a process emission segment or activity is detected or suspected in the energy disclosures/operations:
+      - **Action:** Continue extracting all energy figures exactly as disclosed (do not omit data).
+      - **Warning Output (Directly above or below Energy Table):** Output an explicit warning banner:
+        `⚠️ PROCESS EMISSION SECTOR WARNING: Potential process emission segment/activity detected in disclosures: [Identified Segment/Activity]. Action Required: Verify against internal process emission schedule/matrix to confirm if this segment qualifies as a process emission activity and take an appropriate data entry call.`
+      - If no process emission segment is detected, output: `Process Emission Check: No process emission segments detected in energy disclosures.`
+
 *   **Coverage:** In metricCoverage, list every baseline pollutant and energy metric as Found or Not disclosed after a full-document scan.
 
 ---

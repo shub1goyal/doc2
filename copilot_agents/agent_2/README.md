@@ -20,7 +20,7 @@
 
 ### Step 2: Configure System Instructions
 1. Navigate to **Overview** > **Instructions**.
-2. Open [00_main_agent_instruction_dpm_buddy.txt](file:///c:/Users/shubh/OneDrive/Desktop/analyst%20ai/copilot_agents/agent_2/00_main_agent_instruction_dpm_buddy.txt).
+2. Open `00_main_agent_instruction_dpm_buddy.txt`.
 3. Copy the entire contents and paste into the **Instructions** text box.
 
 ### Step 3: Configure Generative AI & Multi-Modal Vision Settings
@@ -31,9 +31,9 @@
 
 ### Step 4: Upload Knowledge Base Reference Files
 1. Navigate to **Knowledge** > **Add knowledge**.
-2. Upload the following documents:
-   - [copilot_studio_dpm_buddy_prompt.txt](file:///c:/Users/shubh/OneDrive/Desktop/analyst%20ai/copilot_agents/agent_2/copilot_studio_dpm_buddy_prompt.txt)
-   - [SKILL.md](file:///c:/Users/shubh/OneDrive/Desktop/analyst%20ai/copilot_agents/agent_2/skills/dpm_buddy_knowledge/SKILL.md)
+2. Upload the following documents from this folder:
+   - `knowledge_base/knowledge_base_dpm_buddy.txt`
+   - `skills/dpm_buddy_knowledge/SKILL.md`
    - *(Optional)* Your team's Environmental Process Manual (DPM 7), Financial DPM, KMS Workbook, and Segment Calculation Manuals.
 
 ---

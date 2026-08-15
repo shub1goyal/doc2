@@ -10,7 +10,7 @@ This directory contains the setup files for **Variant 2** of the FY25 Corporate 
 
 1. **`skills/fy25_esg_extraction/SKILL.md`**: The official Agent Custom Skill file (with YAML frontmatter header) configured for automated Tasks 1–4 stream + dedicated Task 5 Excel generation turn.
 2. **`00_main_agent_instruction_variant2.txt`**: The Orchestrator prompt for Copilot Studio's Main Agent (Variant 2).
-3. **`copilot_studio_esg_2025_prompt_variant2.txt`**: Master prompt file for direct text copy-pasting or Knowledge Base upload (Variant 2).
+3. **`knowledge_base/knowledge_base_esg_2025_variant2.txt`**: Master knowledge base file containing all extraction rules, schema definitions, and validation logic (Variant 2).
 4. **`README_variant2.md`**: This configuration and setup guide (Variant 2).
 
 ---
@@ -75,10 +75,10 @@ This directory contains the setup files for **Variant 2** of the FY25 Corporate 
 
 ### Option A: Using as a Custom Agent Skill (`skills/fy25_esg_extraction/SKILL.md`)
 1. Import `skills/fy25_esg_extraction/SKILL.md` into your agent framework / Copilot Studio custom skills repository.
-2. Set `00_main_agent_instruction.txt` as the Main Agent System Instruction.
+2. Set `00_main_agent_instruction_variant2.txt` as the Main Agent System Instruction.
 
 ### Option B: Uploading to Knowledge Base
-1. In Copilot Studio, go to **Knowledge** / **Generative Answers**.
-2. Upload `skills/fy25_esg_extraction/SKILL.md` or `copilot_studio_esg_2025_prompt.txt` as a reference Knowledge document.
-3. Paste `00_main_agent_instruction.txt` into your Main Agent Instructions.
+1. In Copilot Studio, go to **Knowledge** > **Add knowledge**.
+2. Upload `knowledge_base/knowledge_base_esg_2025_variant2.txt` (or `skills/fy25_esg_extraction/SKILL.md`) as a reference Knowledge document.
+3. Paste `00_main_agent_instruction_variant2.txt` into your Main Agent Instructions.
 

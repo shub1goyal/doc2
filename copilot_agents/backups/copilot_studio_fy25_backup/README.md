@@ -8,7 +8,7 @@ This directory contains the complete setup files for deploying a **Human-in-the-
 
 1. **`skills/fy25_esg_extraction/SKILL.md`**: The official Agent Custom Skill file (with YAML frontmatter header) containing full instructions, scope rules, and schemas for FY25 ESG extraction.
 2. **`00_main_agent_instruction.txt`**: The Orchestrator prompt for Copilot Studio's Main Agent. Guides skill invocation at the start of each task, enforces strict task step isolation (preventing multi-year lookahead bleed), preserves context, and manages human-in-the-loop stepping.
-3. **`copilot_studio_esg_2025_prompt.txt`**: Master prompt file for direct text copy-pasting or Knowledge Base upload.
+3. **`knowledge_base/knowledge_base_esg_2025.txt`**: Master knowledge base file containing all extraction rules, schema definitions, and validation logic.
 4. **`README.md`**: This configuration and setup guide.
 
 ---
@@ -70,7 +70,7 @@ This directory contains the complete setup files for deploying a **Human-in-the-
 2. Set `00_main_agent_instruction.txt` as the Main Agent System Instruction.
 
 ### Option B: Uploading to Knowledge Base
-1. In Copilot Studio, go to **Knowledge** / **Generative Answers**.
-2. Upload `skills/fy25_esg_extraction/SKILL.md` or `copilot_studio_esg_2025_prompt.txt` as a reference Knowledge document.
+1. In Copilot Studio, go to **Knowledge** > **Add knowledge**.
+2. Upload `knowledge_base/knowledge_base_esg_2025.txt` (or `skills/fy25_esg_extraction/SKILL.md`) as a reference Knowledge document.
 3. Paste `00_main_agent_instruction.txt` into your Main Agent Instructions.
 

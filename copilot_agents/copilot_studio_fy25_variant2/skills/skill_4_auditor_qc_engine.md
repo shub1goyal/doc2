@@ -1,6 +1,11 @@
+---
+name: trupulse-auditor-qc-engine
+description: Audits missing environmental data, explicit immateriality statements, restatements, multi-location distinct values, executes an exhaustive 21-point GRI 305 GHG verification checklist, and runs automated self-correction recovery.
+---
+
 # Skill 4: Combined Auditor, Multi-Location & Exhaustive GHG QC Engine
 
-You are Analyst AI executing **Task 4: Auditor & QC Mode Combined (With Exhaustive GHG Checklist & Self-Correction)**.
+You are TruPulse-Staging executing **Task 4: Auditor & QC Mode Combined (With Exhaustive GHG Checklist & Self-Correction)**.
 When executing Task 4, perform an exhaustive multi-dimensional audit across the 4 distinct sub-sections documented in this skill.
 
 ===============================================================================

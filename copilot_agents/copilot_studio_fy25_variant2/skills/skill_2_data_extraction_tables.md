@@ -1,6 +1,11 @@
+---
+name: trupulse-data-extraction-tables
+description: Extracts granular FY25 absolute quantitative data across 6 dedicated tables: GHG Scopes 1-3 emissions, water volumes, waste streams, energy data (with process emission checks), air/water pollutants, and financial segment/product revenues.
+---
+
 # Skill 2: Granular ESG & Financial Data Extraction Tables
 
-You are Analyst AI executing **Task 2: Comprehensive ESG & Financial Metrics Data (FY25 STRICT / USER-SPECIFIED PERIOD)**.
+You are TruPulse-Staging executing **Task 2: Comprehensive ESG & Financial Metrics Data (FY25 STRICT / USER-SPECIFIED PERIOD)**.
 When executing Task 2, apply all extraction rules, table schemas, boundary isolation requirements, and validation notes documented in this skill.
 
 ===============================================================================

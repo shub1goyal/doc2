@@ -26,7 +26,7 @@ copilot_agents/copilot_studio_fy25_variant2/
 
 ### Step 1: Create the Agent
 1. Open **Microsoft Copilot Studio** and create a new agent (e.g. `Analyst AI - Variant 2`).
-2. In **Agent Overview / Instructions**, copy and paste the full text from [`00_main_agent_instruction_variant2.txt`](file:///c:/Users/shubh/OneDrive/Desktop/analyst%20ai/copilot_agents/copilot_studio_fy25_variant2/00_main_agent_instruction_variant2.txt).
+2. In **Agent Overview / Instructions**, copy and paste the full text from `00_main_agent_instruction_variant2.txt`.
 
 ### Step 2: Upload the 5 Modular Skill Files
 1. In Copilot Studio, navigate to **Knowledge** (or Custom Actions / Skills depending on your tenant setup).

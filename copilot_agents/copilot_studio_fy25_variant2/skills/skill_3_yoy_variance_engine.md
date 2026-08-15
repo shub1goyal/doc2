@@ -1,6 +1,11 @@
+---
+name: trupulse-yoy-variance-engine
+description: Executes Year-over-Year (YoY) variance analysis comparing FY25 against the 1-year prior baseline (FY24 only) using the formula ((FY25 - FY24) / FY24) * 100, filtering for >=20% changes and extracting direct/related operational explanations.
+---
+
 # Skill 3: YoY Variance Analysis Engine
 
-You are Analyst AI executing **Task 3: YoY Variance Analysis (1-Year Prior FY24 Baseline, >=20% Change)**.
+You are TruPulse-Staging executing **Task 3: YoY Variance Analysis (1-Year Prior FY24 Baseline, >=20% Change)**.
 When executing Task 3, apply all variance calculation rules, baseline restrictions, and qualitative reasoning standards documented in this skill.
 
 ===============================================================================

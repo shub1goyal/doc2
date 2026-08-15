@@ -1,6 +1,6 @@
-# Microsoft Copilot Studio — TruPulse-Staging (Variant 1 Setup Guide)
+# Microsoft Copilot Studio — TruPulse (Production Agent Setup Guide)
 
-This guide contains all configuration settings, welcome messages, suggested prompts, and copy-paste values for deploying TruPulse-Staging (Variant 1: Monolithic Skill) in Microsoft Copilot Studio.
+This guide contains all configuration settings, welcome messages, suggested prompts, and copy-paste values for deploying TruPulse in Microsoft Copilot Studio.
 
 ===============================================================================
 DIRECTORY FILES
@@ -18,14 +18,14 @@ COPILOT STUDIO AGENT SETTINGS (COPY-PASTE READY)
 -------------------------------------------------------------------------------
 
 Agent Name:
-TruPulse-Staging
+TruPulse
 
 Short Description:
-Staging environment for TruPulse monolithic skill extraction, comprehensive ESG metric analysis, YoY variance checks, and Excel report generation.
+Autonomous enterprise copilot that audits reporting scopes, extracts granular Scope 1-3 emissions and ESG metrics, runs YoY variance analysis, and compiles audit-ready Excel workbooks.
 
 Theme / Icon:
-- Avatar File: assets/trupulse_staging_avatar.jpg (3D Friendly AI Assistant Mascot Robot with Sprout)
-- Color: Deep Teal (#0D9488) or Slate Blue
+- Avatar File: assets/trupulse_avatar.jpg (Modern Circular Badge with Glowing Emerald Pulse Leaf)
+- Color: Forest Green (#0F766E) or Deep Slate
 
 Instructions (System Prompt):
 Copy and paste the entire content of the file:
@@ -36,7 +36,7 @@ Copy and paste the entire content of the file:
 -------------------------------------------------------------------------------
 Paste this directly into the "Send a message" node under Conversation Start topic:
 
-Welcome to TruPulse-Staging!
+Welcome to TruPulse!
 I am your corporate ESG extraction and operational boundary auditor.
 
 Upload your company's Annual Report, Sustainability Report, or BRSR PDF, then click a suggested prompt below or type "Start Task 1".
@@ -80,11 +80,5 @@ Add these clickable starter buttons on the agent overview page:
 - Task 4: Combined Auditor & QC Mode (Immateriality, Multi-Location, 21-Point Checklist & Self-Correction)
 - Task 5: Consolidated Excel Workbook (.xlsx) Generation (Automatic trigger after Task 4)
 
--------------------------------------------------------------------------------
-KEY CAPABILITIES
--------------------------------------------------------------------------------
-* **Context Preservation**: Previous task responses are automatically included as active context for subsequent tasks so that YoY variance and auditor checks have 100% data continuity.
-* **Cross-Document Company Match & Target Selection Gate (Task 1)**: Verifies whether uploaded files belong to the same company. If a mismatch is detected, displays a warning callout (`⚠️ CRITICAL WARNING: Company Mismatch Detected`), **STOPS execution**, and prompts the user to select which company to analyze.
-* **Non-Negotiable Immateriality & Restatements**: Dedicated detail rows inside Task 2 data tables (`[Metric Name] - Immateriality Details` and `[Metric Name] - Restatement Details`) and full coverage in Task 4 Part A.
-* **Multi-Location & Distinct Value Verification (Task 4 Part B)**: Audits whether any KPI appeared with different values across multiple pages/reports (e.g. Page 31 integer vs Page 125 decimal). Displays omitted/discrepant values in a Markdown table.
-* **Markdown Table (TSV) Format**: All in-chat task outputs are rendered in clean Markdown Table (TSV / Tab-Separated Values) format.
+
+

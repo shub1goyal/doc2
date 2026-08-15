@@ -29,12 +29,18 @@
 3. **Content Moderation:** Set to **Medium** or standard enterprise policy.
 4. **Knowledge Grounding:** Enable *"Allow the AI to use its own general knowledge"* = **Off** (Strict Grounding only to attached Knowledge).
 
-### Step 4: Upload Knowledge Base Reference Files
-1. Navigate to **Knowledge** > **Add knowledge**.
-2. Upload the following documents from this folder:
-   - `knowledge_base/knowledge_base_dpm_buddy.txt`
-   - `skills/dpm_buddy_knowledge/SKILL.md`
-   - *(Optional)* Your team's Environmental Process Manual (DPM 7), Financial DPM, KMS Workbook, and Segment Calculation Manuals.
+### Step 4: Configure Knowledge Base & Custom Skills
+1. **Custom Skill:**
+   - Import `skills/dpm_buddy_knowledge/SKILL.md` as an Agent Custom Skill.
+2. **Knowledge Sources (Process Manuals):**
+   - Navigate to **Knowledge** > **Add knowledge**.
+   - Upload your 6 official Process Manuals & Workbooks:
+     - `[Doc-1]` Environmental Process Manual (DPM 7)
+     - `[Doc-2]` Financial Process Manual (Financial DPM)
+     - `[Doc-3]` Operational Process Manual (Operational DPM)
+     - `[Doc-4]` KMS Knowledge Workbook
+     - `[Doc-5]` Banking Segment Calculation Manual
+     - `[Doc-6]` Insurance Segment Calculation Manual
 
 ---
 

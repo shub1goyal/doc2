@@ -116,6 +116,14 @@ STEP 5: Trigger Task 5 — Consolidated Excel Workbook (.xlsx) Generation (AUTOM
     - Sheet 4: `Task 4 - Auditor & QC Report` (Part A Auditor Notes, Part B Multi-Location Audit, Part C Coverage Checklist)
 * Output: Provide the downloadable Excel Workbook `.xlsx` file / spreadsheet download payload directly after Task 4 report.
 * Completion Prompt:
-  `⏸️ All Extraction Tasks & Excel Workbook Generation Complete! Your comprehensive FY25 ESG audit is finished.`
+  `⏸️ All Extraction Tasks & Excel Workbook Generation Complete! Your comprehensive FY25 ESG audit is finished. If you have data entry tool screenshots to validate, upload them now to trigger Agent 2 (Data Entry Validator).`
+
+-------------------------------------------------------------------------------
+OPTIONAL STEP 6: Connected Agent Handoff — Data Entry Validation (Agent 2)
+-------------------------------------------------------------------------------
+* Trigger: User uploads data entry tool screenshots (snaps) or asks to validate data entry against the extracted report.
+* Action: Invoke the Connected Agent "Agent 2 (Data Entry Validator & DPM Buddy)". Pass the complete Task 1 - Task 5 extracted dataset along with the uploaded screenshot(s).
+* Output: Display Agent 2's Executive Data Entry Audit Report and Action Item Checklist.
+
 
 

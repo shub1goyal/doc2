@@ -11,8 +11,12 @@ This repository contains **two distinct software projects**:
    - Single-turn LLM extraction prompt presets loaded directly by the Analyst AI Web App frontend.
    - Files: `esg_2025.txt`, `esg_2024.txt`, `esg_2023.txt`, `esg_2022.txt`, `presets.json`.
    - Optimized for single-prompt full ESG & Business extraction.
-2. **Microsoft Copilot Studio Agent Packages (`/copilot_studio_fy25` & `/copilot_studio_fy25_variant2`)**:
-   - Multi-turn Microsoft Copilot Studio agent orchestrator prompts, agent custom skills, and knowledge base files.
+2. **Microsoft Copilot Studio Agent Packages (`/copilot_agents`)**:
+   - Multi-turn Microsoft Copilot Studio agent orchestrator prompts, agent custom skills, and knowledge base files organized by agent:
+     - `copilot_agents/copilot_studio_fy25`: Agent 1 (Variant 1: 5-Turn Human-in-the-Loop Extraction)
+     - `copilot_agents/copilot_studio_fy25_variant2`: Agent 1 (Variant 2: 2-Turn Streamlined Extraction)
+     - `copilot_agents/agent_2`: Agent 2 (Data Entry Validator & DPM Buddy)
+
 
 ---
 
